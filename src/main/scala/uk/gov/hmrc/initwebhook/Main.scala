@@ -17,16 +17,16 @@
 package uk.gov.hmrc.initwebhook
 
 import java.io.File
-import java.nio.file.Files
-import java.util.concurrent.TimeUnit
 
 import ch.qos.logback.classic.{Level, Logger}
 import org.slf4j.LoggerFactory
 import uk.gov.hmrc.initwebhook.ArgParser.Config
+import scala.concurrent.ExecutionContext.Implicits.global
 
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
+import ImplicitPimps._
 
+import scala.concurrent.Future
+import scala.util.{Failure, Try}
 
 object Main {
 
@@ -34,9 +34,6 @@ object Main {
     val githubCredsFile = System.getProperty("user.home") + "/.github/.credentials"
     val githubCredsOpt = CredentialsFinder.findGithubCredsInFile(new File(githubCredsFile).toPath)
     val creds = githubCredsOpt.getOrElse(throw new scala.IllegalArgumentException(s"Did not find valid Github credentials in ${githubCredsFile}"))
-
-    Log.debug(s"github client_id ${creds.user}")
-    Log.debug(s"github client_secret ${creds.pass.takeRight(3)}*******")
 
     creds
   }
@@ -61,17 +58,24 @@ object Main {
         root.setLevel(Level.INFO)
       }
 
-      start(config.repoName, config.teamName, config.webhookUrl)
+      start(config.repoNames, config.webhookUrl, config.events)
     }
   }
 
-  def start(newRepoName: String, team: String, webhookUrl: String): Unit = {
+  def start(repoNames: Seq[String], webhookUrl: String, events: Seq[String]): Unit = {
 
     val github = buildGithub()
 
     try {
-      val result = github.createWebhook(newRepoName, webhookUrl)
-      Await.result(result, Duration(60, TimeUnit.SECONDS))
+
+      val futureResults: Future[Seq[Try[String]]] = Future.sequence(repoNames.map(repon => github.createWebhook(repon, webhookUrl, events)).listToTry)
+
+      futureResults.map( _.collect{case Failure(t) => t.getMessage}).map{ errors =>
+
+        Log.error("Error while creating some web hook")
+
+        Log.error(errors.mkString("\n"))
+      }
     } finally {
       github.close()
     }

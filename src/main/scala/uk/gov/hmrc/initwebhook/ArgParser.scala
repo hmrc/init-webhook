@@ -17,14 +17,14 @@
 package uk.gov.hmrc.initwebhook
 
 
-object ArgParser{
+object ArgParser {
 
 
   case class Config(
-                     repoName: String = "",
-                     teamName:String = "",
+                     repoNames: Seq[String] = Seq(),
                      webhookUrl: String = "",
-                     verbose:Boolean = false)
+                     events: Seq[String] = Seq(),
+                     verbose: Boolean = false)
 
   val parser = new scopt.OptionParser[Config]("init-webhook") {
 
@@ -34,16 +34,20 @@ object ArgParser{
 
     help("help") text "prints this usage text"
 
-    arg[String]("repo-names") action { (x, c) =>
-      c.copy(repoName = x) } text "the name of the github repository"
+    opt[Seq[String]]("repo-names") abbr ("rn") required() valueName ("<repo1>,<repo3>...") action { (x, c) =>
+      c.copy(repoNames = x)
+    } text "the name of the github repository"
 
-    arg[String]("team-name") action { (x, c) =>
-      c.copy(teamName = x) } text "the github team name"
+    opt[Seq[String]]("events") abbr ("e") valueName ("<event1>,<event2>...") action { (x, c) =>
+      c.copy(events = x)
+    } text "coma separated events to for notifiation"
 
-    opt[String]("webhook-url") action { (x, c) =>
-      c.copy(webhookUrl = x) } text "the url to add as a github webhook"
+    opt[String]("webhook-url") abbr ("wu") required() action { (x, c) =>
+      c.copy(webhookUrl = x)
+    } text "the url to add as a github webhook"
 
     opt[Unit]('v', "verbose") action { (x, c) =>
-      c.copy(verbose = true) } text "verbose mode (debug logging)"
+      c.copy(verbose = true)
+    } text "verbose mode (debug logging)"
   }
 }

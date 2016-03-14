@@ -18,7 +18,8 @@ package uk.gov.hmrc.initwebhook
 
 import scala.concurrent.duration._
 import scala.concurrent.{Promise, Await, Future}
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
+import scala.concurrent.ExecutionContext.Implicits.global
 
 object ImplicitPimps {
 
@@ -27,5 +28,10 @@ object ImplicitPimps {
       Await.result(self, 30 seconds)
       self
     }
+  }
+
+  implicit class FutureSeqPimp[T](self :Seq[Future[T]]) {
+
+    def listToTry : Seq[Future[Try[T]]] = self.map{ _.map(Success(_)).recover{case t => Failure(t)}}
   }
 }

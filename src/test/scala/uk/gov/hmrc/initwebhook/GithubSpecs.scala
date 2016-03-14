@@ -23,6 +23,8 @@ import com.github.tomakehurst.wiremock.http.RequestMethod._
 import org.scalatest.{Matchers, WordSpec}
 import play.api.libs.json.Json
 
+import scala.util.{Failure, Success}
+import scala.concurrent.ExecutionContext.Implicits.global
 
 
 class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMockEndpoints {
@@ -37,8 +39,50 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
     override def githubUrls: GithubUrls = new GithubUrls(apiRoot = endpointMockUrl)
   }
 
-  "Github.createWebhook" should {
-    "successfully create webhook" in {
+
+  val notificationUrl = "http://webhookurl"
+
+  val githubGetAllHooksReponse =
+    s"""
+       |[
+       |{
+       |    "id": 1,
+       |    "url": "${endpointMockUrl}/repos/hmrc/domain/hooks/1",
+       |    "test_url": "https://api.github.com/repos/hmrc/domain/hooks/1/test",
+       |    "ping_url": "https://api.github.com/repos/hmrc/domain/hooks/1/pings",
+       |    "name": "web",
+       |    "events": [
+       |      "push",
+       |      "pull_request"
+       |    ],
+       |    "active": true,
+       |    "config": {
+       |      "url": "$notificationUrl",
+       |      "content_type": "json"
+       |    }
+       |  },
+       |{
+       |  "id": 2,
+       |  "url": "https://api.github.com/repos/hmrc/domain/hooks/2",
+       |  "test_url": "https://api.github.com/repos/hmrc/domain/hooks/2/test",
+       |  "ping_url": "https://api.github.com/repos/hmrc/domain/hooks/2/pings",
+       |  "name": "web",
+       |  "events": [
+       |    "push",
+       |    "pull_request"
+       |  ],
+       |  "active": true,
+       |  "config": {
+       |    "url": "http://someother/url",
+       |    "content_type": "json"
+       |  }
+       |}
+       |]
+        """.stripMargin
+
+
+  "Github" should {
+    "createWebhook successfully create webhook when not already exists" in {
       val gitHubResponse =
         """
           |{
@@ -50,12 +94,18 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
         """.stripMargin
 
       givenGitHubExpects(
+        method = GET,
+        url = "/repos/hmrc/domain/hooks",
+        willRespondWith = (200, Some("[]"))
+      )
+
+      givenGitHubExpects(
         method = POST,
         url = "/repos/hmrc/domain/hooks",
         willRespondWith = (200, Some(gitHubResponse))
       )
 
-      val webhookResponse = github.createWebhook("domain", "http://webhookurl").await
+      val webhookResponse = github.createWebhook("domain", "http://webhookurl", Seq("event1", "event2", "event3")).await
 
       assertRequest(
         method = POST,
@@ -63,13 +113,7 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
         jsonBody = Some(s"""{
                            |    "name": "web",
                            |    "active": true,
-                           |    "events": [
-                           |        "issues",
-                           |        "pull_request",
-                           |        "pull_request_review_comment",
-                           |        "release",
-                           |        "status"
-                           |    ],
+                           |    "events": ["event1","event2","event3"],
                            |    "config": {
                            |        "url": "http://webhookurl",
                            |        "content_type": "json"
@@ -81,7 +125,96 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
 
       webhookResponse shouldBe "https://api.github.com/repos/hmrc/domain/hooks/1"
     }
+
+
+    "createWebhook successfully deletes the existing web hook and re creates with new events" in {
+
+
+      val gitHubCreateResponse =
+        """
+          |{
+          |   "id": 1,
+          |   "url": "https://api.github.com/repos/hmrc/domain/hooks/1",
+          |   "test_url": "https://api.github.com/repos/hmrc/domain/hooks/1/test",
+          |   "ping_url": "https://api.github.com/repos/hmrc/domain/hooks/1/pings"
+          |}
+        """.stripMargin
+
+
+
+      givenGitHubExpects(
+        method = GET,
+        url = "/repos/hmrc/domain/hooks",
+        willRespondWith = (200, Some(githubGetAllHooksReponse))
+      )
+
+      givenGitHubExpects(
+        method = DELETE,
+        url = "/repos/hmrc/domain/hooks/1",
+        willRespondWith = (200, None)
+      )
+
+      givenGitHubExpects(
+        method = POST,
+        url = "/repos/hmrc/domain/hooks",
+        willRespondWith = (200, Some(gitHubCreateResponse))
+      )
+
+
+      val webhookResponse = github.createWebhook("domain", "http://webhookurl", Seq("event1", "event2", "event3")).await
+
+
+      assertRequest(
+        method = DELETE,
+        url = "/repos/hmrc/domain/hooks/1",
+        jsonBody = None
+      )
+
+      assertRequest(
+        method = POST,
+        url = "/repos/hmrc/domain/hooks",
+        jsonBody = Some(s"""{
+                           |    "name": "web",
+                           |    "active": true,
+                           |    "events": ["event1","event2","event3"],
+                           |    "config": {
+                           |        "url": "http://webhookurl",
+                           |        "content_type": "json"
+                           |    }
+                           |}
+                 """.stripMargin)
+      )
+
+
+      webhookResponse shouldBe "https://api.github.com/repos/hmrc/domain/hooks/1"
+    }
+
+
+    "not create web hook if can't remove the existing webhook" in {
+
+      givenGitHubExpects(
+        method = GET,
+        url = "/repos/hmrc/domain/hooks",
+        willRespondWith = (200, Some(githubGetAllHooksReponse))
+      )
+
+      givenGitHubExpects(
+        method = DELETE,
+        url = "/repos/hmrc/domain/hooks/1",
+        willRespondWith = (400, None)
+      )
+
+      github.createWebhook("domain", "http://webhookurl", Seq("event1", "event2", "event3")).onComplete{
+          case Success(value) => fail("")
+          case Failure(e) =>
+      }
+
+    }
+
   }
+
+
+
 
   case class GithubRequest(method:RequestMethod, url:String, body:Option[String]){
 
@@ -125,7 +258,7 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
 
     val builder = new MappingBuilder(method, urlEqualTo(url))
       .withHeader("Content-Type", equalTo("application/json"))
-      
+
 
     val response: ResponseDefinitionBuilder = new ResponseDefinitionBuilder()
       .withStatus(willRespondWith._1)

@@ -1,6 +1,8 @@
 import sbt.Keys._
 import sbt.Tests.{SubProcess, Group}
 import sbt._
+import sbtassembly.AssemblyKeys._
+import sbtassembly.{MergeStrategy, PathList}
 import uk.gov.hmrc.SbtAutoBuildPlugin
 import uk.gov.hmrc.versioning.SbtGitVersioning
 
@@ -18,7 +20,8 @@ object HmrcBuild extends Build {
         "-target:jvm-1.8",
         "-Xmax-classfile-name", "100",
         "-encoding", "UTF-8"
-      )
+      ),
+      AssemblySettings()
     )
     .settings(
       parallelExecution in Test := false,
@@ -49,3 +52,21 @@ private object AppDependencies {
 
   def apply() = compile ++ test
 }
+
+object AssemblySettings{
+  def apply()= Seq(
+    assemblyJarName in assembly := "init-webhook.jar",
+    assemblyMergeStrategy in assembly := {
+      case PathList("org", "apache", "commons", "logging", xs@_*) => MergeStrategy.first
+      case PathList("play", "core", "server", xs@_*) => MergeStrategy.first
+      case x =>
+        val oldStrategy = (assemblyMergeStrategy in assembly).value
+        oldStrategy(x)
+    },
+    artifact in(Compile, assembly) := {
+      val art = (artifact in(Compile, assembly)).value
+      art.copy(`classifier` = Some("assembly"))
+    }
+  )
+}
+

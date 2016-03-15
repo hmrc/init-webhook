@@ -23,7 +23,8 @@ import com.github.tomakehurst.wiremock.http.RequestMethod._
 import org.scalatest.{Matchers, WordSpec}
 import play.api.libs.json.Json
 
-import scala.util.{Failure, Success}
+import scala.concurrent.Future
+import scala.util.{Try, Failure, Success}
 import scala.concurrent.ExecutionContext.Implicits.global
 
 
@@ -105,7 +106,7 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
         willRespondWith = (200, Some(gitHubResponse))
       )
 
-      val webhookResponse = github.createWebhook("domain", "http://webhookurl", Seq("event1", "event2", "event3")).await
+      val webhookResponse = github.tryCreateWebhook("domain", "http://webhookurl", Seq("event1", "event2", "event3")).await
 
       assertRequest(
         method = POST,
@@ -123,7 +124,7 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
       )
 
 
-      webhookResponse shouldBe "https://api.github.com/repos/hmrc/domain/hooks/1"
+      webhookResponse.get shouldBe "https://api.github.com/repos/hmrc/domain/hooks/1"
     }
 
 
@@ -161,7 +162,7 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
       )
 
 
-      val webhookResponse = github.createWebhook("domain", "http://webhookurl", Seq("event1", "event2", "event3")).await
+      val webhookResponse: Try[String] = github.tryCreateWebhook("domain", "http://webhookurl", Seq("event1", "event2", "event3")).await
 
 
       assertRequest(
@@ -186,7 +187,7 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
       )
 
 
-      webhookResponse shouldBe "https://api.github.com/repos/hmrc/domain/hooks/1"
+      webhookResponse.get shouldBe "https://api.github.com/repos/hmrc/domain/hooks/1"
     }
 
 
@@ -204,11 +205,9 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
         willRespondWith = (400, None)
       )
 
-      github.createWebhook("domain", "http://webhookurl", Seq("event1", "event2", "event3")).onComplete{
-          case Success(value) => fail("")
-          case Failure(e) =>
-      }
+      github.tryCreateWebhook("domain", "http://webhookurl", Seq("event1", "event2", "event3")).await
 
+      endpointMock.verifyThat(0, postRequestedFor(urlEqualTo("/repos/hmrc/domain/hooks")))
     }
 
   }

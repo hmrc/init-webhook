@@ -26,7 +26,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import ImplicitPimps._
 
 import scala.concurrent.Future
-import scala.util.{Failure, Try}
+import scala.util.{Success, Failure, Try}
 
 object Main {
 
@@ -68,14 +68,22 @@ object Main {
 
     try {
 
-      val futureResults: Future[Seq[Try[String]]] = Future.sequence(repoNames.map(repon => github.createWebhook(repon, webhookUrl, events)).listToTry)
+      val createHooksF: Future[Seq[Try[String]]] = Future.sequence(
+        repoNames.map(repon => github.tryCreateWebhook(repon, webhookUrl, events))
+      )
 
-      futureResults.map( _.collect{case Failure(t) => t.getMessage}).map{ errors =>
+      createHooksF.map(_.filter(_.isFailure)).map{failures =>
+                val failedMessages: Seq[String] = failures.collect { case Failure(t) => t.getMessage }
+                if (failedMessages.nonEmpty) {
+                  val errorMessage =
+                    "########### Failure while creating some repository hooks, please see previous errors ############\n" + failedMessages.mkString("\n")
 
-        Log.error("Error while creating some web hook")
+                  throw new RuntimeException(errorMessage)
+                }
+      }.await
 
-        Log.error(errors.mkString("\n"))
-      }
+
+
     } finally {
       github.close()
     }

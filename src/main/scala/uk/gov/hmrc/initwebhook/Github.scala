@@ -24,6 +24,9 @@ import play.api.libs.ws.ning.{NingAsyncHttpClientConfigBuilder, NingWSClient, Ni
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import ImplicitPimps._
+
+import scala.util.{Success, Failure, Try}
 
 
 class GithubUrls(orgName: String = "hmrc",
@@ -39,9 +42,9 @@ class RequestException(request: WSRequest, response: WSResponse)
 }
 
 
-case class Webhook(id: Int, url: String, config :HookConfig)
+case class Webhook(id: Int, url: String, config: HookConfig)
 
-case class HookConfig(url : String)
+case class HookConfig(url: String)
 
 object HookConfig {
   implicit val jsonFormat = Json.format[HookConfig]
@@ -57,38 +60,46 @@ trait Github {
 
   def githubUrls: GithubUrls
 
-  def getExistingWebhooks(repoName: String): Future[Seq[Webhook]] = {
+  def getExistingWebhooks(repoName: String) = {
 
-    githubHttp.get(githubUrls.webhook(repoName)).map{res => res.json.as[Seq[Webhook]] }
+    githubHttp.get(githubUrls.webhook(repoName)).map { res => res.json.as[Seq[Webhook]] }.liftToTry
   }
 
-  def tryDeleteExistingWebhooks(repoName: String, webhookUrl: String): Future[Seq[Webhook]] = {
-    getExistingWebhooks(repoName).flatMap { hooks =>
-      Future.sequence(
-        hooks.filter(_.config.url == webhookUrl).map(x => githubHttp.delete(x.url).map(_ => x))
-      )
+  def tryDeleteExistingWebhooks(repoName: String, webhookUrl: String): Future[Seq[Try[String]]] = {
+    getExistingWebhooks(repoName).flatMap {
+      case Success(hooks) =>
+        Future.traverse(
+          hooks.filter(_.config.url == webhookUrl).map(x => githubHttp.delete(x.url).map(_ => x.url))
+        )(_.liftToTry)
+      case Failure(t) => Future.successful(Seq(Failure(t)))
     }
   }
 
-
-  def createWebhook(repoName: String, webhookUrl: String, events: Seq[String]): Future[String] = {
+  def tryCreateWebhook(repoName: String, webhookUrl: String, events: Seq[String]): Future[Try[String]] = {
     Log.info(s"creating github webhook for repo '$repoName' with webhook URL '$webhookUrl', with events : ${events.mkString(",")}")
 
-    tryDeleteExistingWebhooks(repoName, webhookUrl).flatMap{_ =>
-      val payload = s"""{
-                       | "name": "web",
-                       | "active": true,
-                       | "events": ${Json.toJson(events).toString()},
-                       | "config": {
-                       |     "url": "$webhookUrl",
-                       |     "content_type": "json"
-                       | }
-                       |}
-                 """.stripMargin
-      githubHttp.postJsonString(githubUrls.webhook(repoName), payload).map { response =>
-        (Json.parse(response) \ "url").as[String]
-      }
+    tryDeleteExistingWebhooks(repoName, webhookUrl).flatMap { deleteOps =>
+      val failedDeletes = deleteOps.filter(_.isFailure)
+      if (failedDeletes.isEmpty)
+        createHook(repoName, webhookUrl, events).liftToTry
+      else Future.successful(Failure(new Exception(s"Failed to create web hook for repo : $repoName")))
+    }
+  }
 
+  private def createHook(repoName: String, webhookUrl: String, events: Seq[String]): Future[String] = {
+    val payload = s"""{
+                     |"name": "web",
+                     |"active": true,
+                     |"events": ${Json.toJson(events).toString()},
+                     |"config": {
+                     |   "url": "$webhookUrl",
+                     |   "content_type": "json"
+                     |}
+                     |}
+                 """.stripMargin
+    githubHttp.postJsonString(githubUrls.webhook(repoName), payload).map {
+      response =>
+        (Json.parse(response) \ "url").as[String]
     }
   }
 
@@ -98,9 +109,11 @@ trait Github {
 
 trait GithubHttp {
 
-  def creds: ServiceCredentials
+  def
+  creds: ServiceCredentials
 
-  private val ws = new NingWSClient(new NingAsyncHttpClientConfigBuilder(new NingWSClientConfig()).build())
+  private val
+  ws = new NingWSClient(new NingAsyncHttpClientConfigBuilder(new NingWSClientConfig()).build())
 
   def close() = {
     ws.close()
@@ -124,9 +137,12 @@ trait GithubHttp {
 
   def delete(url: String): Future[WSResponse] = {
     val resultF = buildJsonCall("DELETE", new URL(url)).execute()
-    resultF.flatMap { res => res.status match {
-      case s if (s >= 200 && s < 300) || (s == 404) => Future.successful(res)
-      case _@e => Future.failed(new scala.Exception(s"Didn't get expected status code when reading from Github. Got status ${res.status}: DELETE ${url} ${res.body}"))
+    resultF.map { result => result.status match {
+      case s if (s >= 200 && s < 300) || (s == 404) => result
+      case _ =>
+        val msg = s"Didn't get expected status code when writing to Github. Got status ${result.status}: DELETE ${url} ${result.body}"
+        Log.error(msg)
+        throw new scala.Exception(msg)
     }
     }
   }
@@ -134,18 +150,24 @@ trait GithubHttp {
 
   def get(url: String): Future[WSResponse] = {
     val resultF = buildJsonCall("GET", new URL(url)).execute()
-    resultF.flatMap { res => res.status match {
-      case s if s >= 200 && s < 300 => Future.successful(res)
-      case _@e => Future.failed(new scala.Exception(s"Didn't get expected status code when reading from Github. Got status ${res.status}: GET ${url} ${res.body}"))
+    resultF.map { result => result.status match {
+      case s if s >= 200 && s < 300 => result
+      case _ =>
+        val msg = s"Didn't get expected status code when writing to Github. Got status ${result.status}: GET ${url} ${result.body}"
+        Log.error(msg)
+        throw new scala.Exception(msg)
     }
     }
   }
 
   def postJsonString(url: String, body: String): Future[String] = {
-    buildJsonCall("POST", new URL(url), Some(Json.parse(body))).execute().flatMap { case result =>
+    buildJsonCall("POST", new URL(url), Some(Json.parse(body))).execute().map { case result =>
       result.status match {
-        case s if s >= 200 && s < 300 => Future.successful(result.body)
-        case _@e => Future.failed(new scala.Exception(s"Didn't get expected status code when writing to Github. Got status ${result.status}: POST ${url} ${result.body}"))
+        case s if s >= 200 && s < 300 => result.body
+        case _ =>
+          val msg = s"Didn't get expected status code when writing to Github. Got status ${result.status}: POST ${url} ${result.body}"
+          Log.error(msg)
+          throw new scala.Exception(msg)
       }
     }
   }

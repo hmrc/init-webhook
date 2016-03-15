@@ -30,8 +30,8 @@ object ImplicitPimps {
     }
   }
 
-  implicit class FutureSeqPimp[T](self :Seq[Future[T]]) {
+  implicit class FutureOfTry[T](self :Future[T]) {
 
-    def listToTry : Seq[Future[Try[T]]] = self.map{ _.map(Success(_)).recover{case t => Failure(t)}}
+    def liftToTry : Future[Try[T]] = self.map( Success(_)).recover{case t => Failure(t)}
   }
 }

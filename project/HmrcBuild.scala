@@ -21,7 +21,8 @@ object HmrcBuild extends Build {
         "-Xmax-classfile-name", "100",
         "-encoding", "UTF-8"
       ),
-      AssemblySettings()
+      AssemblySettings(),
+      addArtifact(artifact in (Compile, assembly), assembly)
     )
     .settings(
       parallelExecution in Test := false,

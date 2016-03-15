@@ -4,7 +4,6 @@ import sbt._
 
 object HmrcBuild extends Build {
 
-  //import TestPhases._
 
   val appName = "init-webhook"
 
@@ -23,7 +22,6 @@ object HmrcBuild extends Build {
       fork in Test := false,
       retrieveManaged := true
     )
-    //.settings(inConfig(TemplateTest)(Defaults.testSettings): _*)
     .settings(libraryDependencies ++= AppDependencies())
 }
 
@@ -48,15 +46,3 @@ private object AppDependencies {
 
   def apply() = compile ++ test
 }
-
-//private object TestPhases {
-//
-//  val allPhases = "tt->test;test->test;test->compile;compile->compile"
-//
-//  lazy val TemplateTest = config("tt") extend Test
-//
-//  def oneForkedJvmPerTest(tests: Seq[TestDefinition]) =
-//    tests map {
-//      test => new Group(test.name, Seq(test), SubProcess(ForkOptions(runJVMOptions = Seq("-Dtest.name=" + test.name))))
-//    }
-//}

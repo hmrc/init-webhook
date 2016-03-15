@@ -1,6 +1,8 @@
 import sbt.Keys._
 import sbt.Tests.{SubProcess, Group}
 import sbt._
+import uk.gov.hmrc.SbtAutoBuildPlugin
+import uk.gov.hmrc.versioning.SbtGitVersioning
 
 object HmrcBuild extends Build {
 
@@ -8,6 +10,7 @@ object HmrcBuild extends Build {
   val appName = "init-webhook"
 
   lazy val library = Project(appName, file("."))
+    .enablePlugins(SbtAutoBuildPlugin, SbtGitVersioning)
     .settings(
       scalaVersion := "2.11.6",
       scalacOptions ++= Seq(

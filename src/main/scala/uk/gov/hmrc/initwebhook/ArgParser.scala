@@ -19,12 +19,17 @@ package uk.gov.hmrc.initwebhook
 
 object ArgParser {
 
+  val defaultEvents = Seq("issues", "pull_request", "pull_request_review_comment", "release", "status")
+
 
   case class Config(
                      repoNames: Seq[String] = Seq(),
                      webhookUrl: String = "",
-                     events: Seq[String] = Seq(),
-                     verbose: Boolean = false)
+                     events: Seq[String] = defaultEvents,
+                     verbose: Boolean = false) {
+
+
+  }
 
   val parser = new scopt.OptionParser[Config]("init-webhook") {
 

@@ -68,7 +68,7 @@ object Main {
 
     try {
 
-      val createHooksF: Future[Seq[Try[String]]] = Future.sequence(
+      val createHooksF = Future.sequence(
         repoNames.map(repon => github.tryCreateWebhook(repon, webhookUrl, events))
       )
 

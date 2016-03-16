@@ -21,12 +21,11 @@ import java.net.URL
 import play.api.libs.json._
 import play.api.libs.ws._
 import play.api.libs.ws.ning.{NingAsyncHttpClientConfigBuilder, NingWSClient, NingWSClientConfig}
+import uk.gov.hmrc.initwebhook.ImplicitPimps._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-import ImplicitPimps._
-
-import scala.util.{Success, Failure, Try}
+import scala.util.{Failure, Success, Try}
 
 
 class GithubUrls(orgName: String = "hmrc",
@@ -42,12 +41,15 @@ class RequestException(request: WSRequest, response: WSResponse)
 }
 
 
-case class Webhook(id: Int, url: String, config: HookConfig)
+case class Webhook(id: Int, name : String, url: String, config: HookConfig)
 
-case class HookConfig(url: String)
+//hooks api return services as well which have domain instead of url that's why option
+case class HookConfig(url: Option[String])
 
 object HookConfig {
+
   implicit val jsonFormat = Json.format[HookConfig]
+
 }
 
 object Webhook {
@@ -62,14 +64,18 @@ trait Github {
 
   def getExistingWebhooks(repoName: String) = {
 
-    githubHttp.get(githubUrls.webhook(repoName)).map { res => res.json.as[Seq[Webhook]] }.liftToTry
+    githubHttp.get(githubUrls.webhook(repoName)).map {
+      res => res.json.as[Seq[Webhook]]
+    }.liftToTry
   }
 
   def tryDeleteExistingWebhooks(repoName: String, webhookUrl: String): Future[Seq[Try[String]]] = {
     getExistingWebhooks(repoName).flatMap {
       case Success(hooks) =>
         Future.traverse(
-          hooks.filter(_.config.url == webhookUrl).map(x => githubHttp.delete(x.url).map(_ => x.url))
+          hooks
+            .filter(x => x.name == "web" && x.config.url.contains(webhookUrl))
+            .map(x => githubHttp.delete(x.url).map(_ => x.url))
         )(_.liftToTry)
       case Failure(t) => Future.successful(Seq(Failure(t)))
     }

@@ -67,17 +67,34 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
        |  "url": "https://api.github.com/repos/hmrc/domain/hooks/2",
        |  "test_url": "https://api.github.com/repos/hmrc/domain/hooks/2/test",
        |  "ping_url": "https://api.github.com/repos/hmrc/domain/hooks/2/pings",
-       |  "name": "web",
+       |  "name": "travis",
        |  "events": [
        |    "push",
        |    "pull_request"
        |  ],
        |  "active": true,
        |  "config": {
-       |    "url": "http://someother/url",
+       |    "domain": "someother.com",
+       |    "content_type": "json"
+       |  }
+       |},
+       |{
+       |  "id": 3,
+       |  "url": "https://api.github.com/repos/hmrc/domain/hooks/3",
+       |  "test_url": "https://api.github.com/repos/hmrc/domain/hooks/3/test",
+       |  "ping_url": "https://api.github.com/repos/hmrc/domain/hooks/3/pings",
+       |  "name": "travis",
+       |  "events": [
+       |    "push",
+       |    "pull_request"
+       |  ],
+       |  "active": true,
+       |  "config": {
+       |    "url": "$notificationUrl",
        |    "content_type": "json"
        |  }
        |}
+       |
        |]
         """.stripMargin
 
@@ -170,6 +187,8 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
         url = "/repos/hmrc/domain/hooks/1",
         jsonBody = None
       )
+
+      endpointMock.verifyThat(0, deleteRequestedFor(urlEqualTo("/repos/hmrc/domain/hooks/3")))
 
       assertRequest(
         method = POST,

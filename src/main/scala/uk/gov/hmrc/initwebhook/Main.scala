@@ -21,6 +21,7 @@ import java.io.File
 import ch.qos.logback.classic.{Level, Logger}
 import org.slf4j.LoggerFactory
 import uk.gov.hmrc.initwebhook.ArgParser.Config
+import uk.gov.hmrc.initwebhook.GitType.{Open, GitType}
 import scala.concurrent.ExecutionContext.Implicits.global
 
 import ImplicitPimps._
@@ -30,22 +31,11 @@ import scala.util.{Success, Failure, Try}
 
 object Main {
 
-  def findGithubCreds(): ServiceCredentials = {
-    val githubCredsFile = System.getProperty("user.home") + "/.github/.credentials"
-    val githubCredsOpt = CredentialsFinder.findGithubCredsInFile(new File(githubCredsFile).toPath)
-    val creds = githubCredsOpt.getOrElse(throw new scala.IllegalArgumentException(s"Did not find valid Github credentials in ${githubCredsFile}"))
+  def buildGithub(credentialsFile: String, apiBaseUrl: String, org: String) = new Github {
 
-    creds
-  }
+    override def githubHttp: GithubHttp = new GithubHttp(ServiceCredentials(credentialsFile))
 
-
-  def buildGithub() = new Github {
-
-    override val githubHttp: GithubHttp = new GithubHttp {
-      override val creds: ServiceCredentials = findGithubCreds()
-    }
-
-    override val githubUrls: GithubUrls = new GithubUrls()
+    override def githubUrls: GithubUrls = new GithubUrls(apiBaseUrl, org)
   }
 
   def main(args: Array[String]) {
@@ -58,31 +48,29 @@ object Main {
         root.setLevel(Level.INFO)
       }
 
-      start(config.repoNames, config.webhookUrl, config.events)
+      start(config)
     }
   }
 
-  def start(repoNames: Seq[String], webhookUrl: String, events: Seq[String]): Unit = {
+  def start(config: Config): Unit = {
 
-    val github = buildGithub()
+    val github = buildGithub(config.credentialsFile, config.gitApiBaseUrl, config.org)
 
     try {
 
       val createHooksF = Future.sequence(
-        repoNames.map(repon => github.tryCreateWebhook(repon, webhookUrl, events))
+        config.repoNames.map(repon => github.tryCreateWebhook(repon, config.webhookUrl, config.events))
       )
 
-      createHooksF.map(_.filter(_.isFailure)).map{failures =>
-                val failedMessages: Seq[String] = failures.collect { case Failure(t) => t.getMessage }
-                if (failedMessages.nonEmpty) {
-                  val errorMessage =
-                    "########### Failure while creating some repository hooks, please see previous errors ############\n" + failedMessages.mkString("\n")
+      createHooksF.map(_.filter(_.isFailure)).map { failures =>
+        val failedMessages: Seq[String] = failures.collect { case Failure(t) => t.getMessage }
+        if (failedMessages.nonEmpty) {
+          val errorMessage =
+            "########### Failure while creating some repository hooks, please see previous errors ############\n" + failedMessages.mkString("\n")
 
-                  throw new RuntimeException(errorMessage)
-                }
+          throw new RuntimeException(errorMessage)
+        }
       }.await
-
-
 
     } finally {
       github.close()

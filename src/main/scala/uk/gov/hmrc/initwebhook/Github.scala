@@ -16,11 +16,9 @@
 
 package uk.gov.hmrc.initwebhook
 
-import java.net.URL
 
 import play.api.libs.json._
 import play.api.libs.ws._
-import play.api.libs.ws.ning.{NingAsyncHttpClientConfigBuilder, NingWSClient, NingWSClientConfig}
 import uk.gov.hmrc.initwebhook.ImplicitPimps._
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -28,12 +26,7 @@ import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
 
-class GithubUrls(orgName: String = "hmrc",
-                 apiRoot: String = "https://api.github.com") {
 
-  def webhook(repoName: String) =
-    s"$apiRoot/repos/$orgName/$repoName/hooks"
-}
 
 class RequestException(request: WSRequest, response: WSResponse)
   extends Exception(s"Got status ${response.status}: ${request.method} ${request.url} ${response.body}") {
@@ -41,7 +34,7 @@ class RequestException(request: WSRequest, response: WSResponse)
 }
 
 
-case class Webhook(id: Int, name : String, url: String, config: HookConfig)
+case class Webhook(id: Int, name: String, url: String, config: HookConfig)
 
 //hooks api return services as well which have domain instead of url that's why option
 case class HookConfig(url: Option[String])
@@ -55,6 +48,15 @@ object HookConfig {
 object Webhook {
   implicit val jsonFormat = Json.format[Webhook]
 }
+
+
+
+
+object GitType extends Enumeration {
+  type GitType = Value
+  val Open , Enterprise = Value
+}
+
 
 trait Github {
 
@@ -98,8 +100,8 @@ trait Github {
                      |"active": true,
                      |"events": ${Json.toJson(events).toString()},
                      |"config": {
-                     |   "url": "$webhookUrl",
-                     |   "content_type": "json"
+                     | "url": "$webhookUrl",
+                     | "content_type": "json"
                      |}
                      |}
                  """.stripMargin
@@ -113,69 +115,3 @@ trait Github {
 }
 
 
-trait GithubHttp {
-
-  def
-  creds: ServiceCredentials
-
-  private val
-  ws = new NingWSClient(new NingAsyncHttpClientConfigBuilder(new NingWSClientConfig()).build())
-
-  def close() = {
-    ws.close()
-    Log.debug("closing github http client")
-  }
-
-  def buildJsonCall(method: String, url: URL, body: Option[JsValue] = None): WSRequest = {
-
-    val req = ws.url(url.toString)
-      .withMethod(method)
-      .withAuth(creds.user, creds.pass, WSAuthScheme.BASIC)
-      .withHeaders(
-        "content-type" -> "application/json")
-
-    Log.debug("req = " + req)
-
-    body.map { b =>
-      req.withBody(b)
-    }.getOrElse(req)
-  }
-
-  def delete(url: String): Future[WSResponse] = {
-    val resultF = buildJsonCall("DELETE", new URL(url)).execute()
-    resultF.map { result => result.status match {
-      case s if (s >= 200 && s < 300) || (s == 404) => result
-      case _ =>
-        val msg = s"Didn't get expected status code when writing to Github. Got status ${result.status}: DELETE ${url} ${result.body}"
-        Log.error(msg)
-        throw new scala.Exception(msg)
-    }
-    }
-  }
-
-
-  def get(url: String): Future[WSResponse] = {
-    val resultF = buildJsonCall("GET", new URL(url)).execute()
-    resultF.map { result => result.status match {
-      case s if s >= 200 && s < 300 => result
-      case _ =>
-        val msg = s"Didn't get expected status code when writing to Github. Got status ${result.status}: GET ${url} ${result.body}"
-        Log.error(msg)
-        throw new scala.Exception(msg)
-    }
-    }
-  }
-
-  def postJsonString(url: String, body: String): Future[String] = {
-    buildJsonCall("POST", new URL(url), Some(Json.parse(body))).execute().map { case result =>
-      result.status match {
-        case s if s >= 200 && s < 300 => result.body
-        case _ =>
-          val msg = s"Didn't get expected status code when writing to Github. Got status ${result.status}: POST ${url} ${result.body}"
-          Log.error(msg)
-          throw new scala.Exception(msg)
-      }
-    }
-  }
-
-}

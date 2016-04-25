@@ -30,14 +30,12 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMockEndpoints {
 
-  class FakeGithubHttp extends GithubHttp {
-    override def creds: ServiceCredentials = ServiceCredentials("", "")
-  }
 
-  val github: Github = new Github{
-    override def githubHttp: GithubHttp = new FakeGithubHttp()
+  val creds: ServiceCredentials = ServiceCredentials("", "")
+  val github: Github = new Github {
+    override def githubHttp: GithubHttp = new GithubHttp(creds)
 
-    override def githubUrls: GithubUrls = new GithubUrls(apiRoot = endpointMockUrl)
+    override def githubUrls: GithubUrls = new GithubUrls(endpointMockUrl, "hmrc")
   }
 
 
@@ -47,52 +45,52 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
     s"""
        |[
        |{
-       |    "id": 1,
-       |    "url": "${endpointMockUrl}/repos/hmrc/domain/hooks/1",
-       |    "test_url": "https://api.github.com/repos/hmrc/domain/hooks/1/test",
-       |    "ping_url": "https://api.github.com/repos/hmrc/domain/hooks/1/pings",
-       |    "name": "web",
-       |    "events": [
-       |      "push",
-       |      "pull_request"
-       |    ],
-       |    "active": true,
-       |    "config": {
-       |      "url": "$notificationUrl",
-       |      "content_type": "json"
-       |    }
-       |  },
+       |   "id": 1,
+       |   "url": "${endpointMockUrl}/repos/hmrc/domain/hooks/1",
+       |   "test_url": "https://api.github.com/repos/hmrc/domain/hooks/1/test",
+       |   "ping_url": "https://api.github.com/repos/hmrc/domain/hooks/1/pings",
+       |   "name": "web",
+       |   "events": [
+       |     "push",
+       |     "pull_request"
+       |   ],
+       |   "active": true,
+       |   "config": {
+       |     "url": "$notificationUrl",
+       |     "content_type": "json"
+       |   }
+       | },
        |{
-       |  "id": 2,
-       |  "url": "https://api.github.com/repos/hmrc/domain/hooks/2",
-       |  "test_url": "https://api.github.com/repos/hmrc/domain/hooks/2/test",
-       |  "ping_url": "https://api.github.com/repos/hmrc/domain/hooks/2/pings",
-       |  "name": "travis",
-       |  "events": [
-       |    "push",
-       |    "pull_request"
-       |  ],
-       |  "active": true,
-       |  "config": {
-       |    "domain": "someother.com",
-       |    "content_type": "json"
-       |  }
+       | "id": 2,
+       | "url": "https://api.github.com/repos/hmrc/domain/hooks/2",
+       | "test_url": "https://api.github.com/repos/hmrc/domain/hooks/2/test",
+       | "ping_url": "https://api.github.com/repos/hmrc/domain/hooks/2/pings",
+       | "name": "travis",
+       | "events": [
+       |   "push",
+       |   "pull_request"
+       | ],
+       | "active": true,
+       | "config": {
+       |   "domain": "someother.com",
+       |   "content_type": "json"
+       | }
        |},
        |{
-       |  "id": 3,
-       |  "url": "https://api.github.com/repos/hmrc/domain/hooks/3",
-       |  "test_url": "https://api.github.com/repos/hmrc/domain/hooks/3/test",
-       |  "ping_url": "https://api.github.com/repos/hmrc/domain/hooks/3/pings",
-       |  "name": "travis",
-       |  "events": [
-       |    "push",
-       |    "pull_request"
-       |  ],
-       |  "active": true,
-       |  "config": {
-       |    "url": "$notificationUrl",
-       |    "content_type": "json"
-       |  }
+       | "id": 3,
+       | "url": "https://api.github.com/repos/hmrc/domain/hooks/3",
+       | "test_url": "https://api.github.com/repos/hmrc/domain/hooks/3/test",
+       | "ping_url": "https://api.github.com/repos/hmrc/domain/hooks/3/pings",
+       | "name": "travis",
+       | "events": [
+       |   "push",
+       |   "pull_request"
+       | ],
+       | "active": true,
+       | "config": {
+       |   "url": "$notificationUrl",
+       |   "content_type": "json"
+       | }
        |}
        |
        |]
@@ -128,15 +126,15 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
       assertRequest(
         method = POST,
         url = "/repos/hmrc/domain/hooks",
-        jsonBody = Some(s"""{
-                           |    "name": "web",
-                           |    "active": true,
-                           |    "events": ["event1","event2","event3"],
-                           |    "config": {
-                           |        "url": "http://webhookurl",
-                           |        "content_type": "json"
-                           |    }
-                           |}
+        jsonBody = Some( s"""{
+                            |   "name": "web",
+                            |   "active": true,
+                            |   "events": ["event1","event2","event3"],
+                            |   "config": {
+                            |       "url": "http://webhookurl",
+                            |       "content_type": "json"
+                            |   }
+                            |}
                  """.stripMargin)
       )
 
@@ -193,15 +191,15 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
       assertRequest(
         method = POST,
         url = "/repos/hmrc/domain/hooks",
-        jsonBody = Some(s"""{
-                           |    "name": "web",
-                           |    "active": true,
-                           |    "events": ["event1","event2","event3"],
-                           |    "config": {
-                           |        "url": "http://webhookurl",
-                           |        "content_type": "json"
-                           |    }
-                           |}
+        jsonBody = Some( s"""{
+                            |   "name": "web",
+                            |   "active": true,
+                            |   "events": ["event1","event2","event3"],
+                            |   "config": {
+                            |       "url": "http://webhookurl",
+                            |       "content_type": "json"
+                            |   }
+                            |}
                  """.stripMargin)
       )
 
@@ -232,46 +230,44 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
   }
 
 
-
-
-  case class GithubRequest(method:RequestMethod, url:String, body:Option[String]){
+  case class GithubRequest(method: RequestMethod, url: String, body: Option[String]) {
 
     {
       body.foreach { b => Json.parse(b) }
     }
 
-    def req:RequestPatternBuilder = {
+    def req: RequestPatternBuilder = {
       val builder = new RequestPatternBuilder(method, urlEqualTo(url))
-      body.map{ b =>
+      body.map { b =>
         builder.withRequestBody(equalToJson(b))
       }.getOrElse(builder)
     }
   }
 
   def assertRequest(
-                     method:RequestMethod,
-                     url:String,
-                     extraHeaders:Map[String,String] = Map(),
-                     jsonBody:Option[String]): Unit ={
+                     method: RequestMethod,
+                     url: String,
+                     extraHeaders: Map[String, String] = Map(),
+                     jsonBody: Option[String]): Unit = {
     val builder = new RequestPatternBuilder(method, urlEqualTo(url))
-    extraHeaders.foreach { case(k, v) =>
+    extraHeaders.foreach { case (k, v) =>
       builder.withHeader(k, equalTo(v))
     }
 
-    jsonBody.map{ b =>
+    jsonBody.map { b =>
       builder.withRequestBody(equalToJson(b))
     }.getOrElse(builder)
     endpointMock.verifyThat(builder)
   }
 
-  def assertRequest(req:GithubRequest): Unit ={
+  def assertRequest(req: GithubRequest): Unit = {
     endpointMock.verifyThat(req.req)
   }
 
   def givenGitHubExpects(
-                          method:RequestMethod,
-                          url:String,
-                          extraHeaders:Map[String,String] = Map(),
+                          method: RequestMethod,
+                          url: String,
+                          extraHeaders: Map[String, String] = Map(),
                           willRespondWith: (Int, Option[String])): Unit = {
 
     val builder = new MappingBuilder(method, urlEqualTo(url))

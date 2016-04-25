@@ -16,13 +16,20 @@
 
 package uk.gov.hmrc.initwebhook
 
+import uk.gov.hmrc.initwebhook.GitType.{Open, GitType}
+
 
 object ArgParser {
 
   val defaultEvents = Seq("issues", "pull_request", "pull_request_review_comment", "release", "status")
 
+  implicit val weekDaysRead: scopt.Read[GitType.Value] = scopt.Read.reads(GitType withName)
+
 
   case class Config(
+                     credentialsFile : String ="",
+                     gitApiBaseUrl : String = "",
+                     org :String = "",
                      repoNames: Seq[String] = Seq(),
                      webhookUrl: String = "",
                      events: Seq[String] = defaultEvents,
@@ -39,15 +46,28 @@ object ArgParser {
 
     help("help") text "prints this usage text"
 
-    opt[Seq[String]]("repo-names") abbr ("rn") required() valueName ("<repo1>,<repo3>...") action { (x, c) =>
+
+    opt[String]("cred-file-path") abbr "cf" required() valueName "/cred/file" action { (x, c) =>
+      c.copy(credentialsFile = x)
+    } text "git credentials file path"
+
+    opt[String]("api-host") abbr "h" required() valueName "https://api.github.com" action { (x, c) =>
+      c.copy(gitApiBaseUrl = x)
+    } text "git api base url"
+
+    opt[String]("org") abbr "o" required() valueName "hmrc" action { (x, c) =>
+      c.copy(org = x)
+    } text "the name of the github organization"
+
+    opt[Seq[String]]("repo-names") abbr "rn" required() valueName "<repo1>,<repo3>..." action { (x, c) =>
       c.copy(repoNames = x)
     } text "the name of the github repository"
 
-    opt[Seq[String]]("events") abbr ("e") valueName ("<event1>,<event2>...") action { (x, c) =>
+    opt[Seq[String]]("events") abbr "e" valueName "<event1>,<event2>..." action { (x, c) =>
       c.copy(events = x)
     } text "coma separated events to for notifiation"
 
-    opt[String]("webhook-url") abbr ("wu") required() action { (x, c) =>
+    opt[String]("webhook-url") abbr "wu" required() action { (x, c) =>
       c.copy(webhookUrl = x)
     } text "the url to add as a github webhook"
 

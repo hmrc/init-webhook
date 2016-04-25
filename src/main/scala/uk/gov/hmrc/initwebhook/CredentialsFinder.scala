@@ -16,16 +16,22 @@
 
 package uk.gov.hmrc.initwebhook
 
+import java.io.File
 import java.nio.file.Path
-
-import play.api.Logger
 
 import scala.io.Source
 
 case class ServiceCredentials(user:String, pass:String)
 
 
-object CredentialsFinder {
+object ServiceCredentials {
+
+  def apply(credentialFile :String): ServiceCredentials = {
+    val githubCredsOpt = findGithubCredsInFile(new File(credentialFile).toPath)
+    val creds = githubCredsOpt.getOrElse(throw new scala.IllegalArgumentException(s"Did not find valid Github credentials in ${credentialFile}"))
+
+    creds
+  }
 
   def findGithubCredsInFile(file:Path):Option[ServiceCredentials] = {
     val conf = new ConfigFile(file)

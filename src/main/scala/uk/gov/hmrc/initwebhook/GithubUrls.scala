@@ -16,16 +16,7 @@
 
 package uk.gov.hmrc.initwebhook
 
-import org.scalatest.{Matchers, WordSpec}
+class GithubUrls(apiBaseUrl : String, org : String) {
 
-
-class GithubUrlsSpecs extends WordSpec with Matchers {
-
-  "GithubUrls.webhook" should {
-    "generate correct repo hook url " in {
-      new GithubUrls("http://api.base.url", "org").webhook("domain").toString shouldBe
-        "http://api.base.url/repos/org/domain/hooks"
-    }
-  }
-
- }
+  def webhook(repoName: String) = s"$apiBaseUrl/repos/$org/$repoName/hooks"
+}

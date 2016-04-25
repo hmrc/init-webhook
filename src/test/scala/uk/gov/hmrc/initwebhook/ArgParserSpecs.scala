@@ -27,15 +27,28 @@ class ArgParserSpecs extends WordSpec with Matchers with FutureValues with WireM
     "create correct config" in {
 
 
-      var args = Array("""-rn repo1,repo2 -wu hook-url -e event1,event2 """.split(" "): _*)
+      var args = Array("""-cf /credentials/file -h http://api.base.url -o org -rn repo1,repo2 -wu hook-url -e event1,event2 """.split(" "): _*)
 
 
-      ArgParser.parser.parse(args, Config()).value shouldBe Config(Seq("repo1", "repo2"), "hook-url", Seq("event1", "event2"))
+      ArgParser.parser.parse(args, Config()).value shouldBe Config(
+        "/credentials/file",
+       "http://api.base.url",
+        "org",
+        Seq("repo1", "repo2"),
+        "hook-url",
+        Seq("event1", "event2"))
 
-      args = Array("""--repo-names repo1,repo2 --webhook-url hook-url --events event1,event2 """.split(" "): _*)
+      args = Array("""--cred-file-path /credentials/file --api-host http://api.base.url --org org --repo-names repo1,repo2 --webhook-url hook-url --events event1,event2 """.split(" "): _*)
 
 
-      ArgParser.parser.parse(args, Config()).value shouldBe Config(Seq("repo1", "repo2"), "hook-url", Seq("event1", "event2"))
+      ArgParser.parser.parse(args, Config()).value shouldBe Config(
+        "/credentials/file",
+        "http://api.base.url",
+        "org",
+        Seq("repo1", "repo2"),
+        "hook-url",
+        Seq("event1", "event2")
+      )
 
     }
   }

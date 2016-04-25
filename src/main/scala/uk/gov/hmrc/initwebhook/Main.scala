@@ -31,11 +31,11 @@ import scala.util.{Success, Failure, Try}
 
 object Main {
 
-  def buildGithub(credentialsFile: String, apiBaseUrl: String, org: String) = new Github {
-
-    override def githubHttp: GithubHttp = new GithubHttp(ServiceCredentials(credentialsFile))
-
-    override def githubUrls: GithubUrls = new GithubUrls(apiBaseUrl, org)
+  def buildGithub(credentialsFile: String, apiBaseUrl: String, org: String) = {
+    new Github(
+      new GithubHttp(ServiceCredentials(credentialsFile)),
+      new GithubUrls(apiBaseUrl, org)
+    )
   }
 
   def main(args: Array[String]) {

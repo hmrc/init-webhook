@@ -28,9 +28,7 @@ object ServiceCredentials {
 
   def apply(credentialFile :String): ServiceCredentials = {
     val githubCredsOpt = findGithubCredsInFile(new File(credentialFile).toPath)
-    val creds = githubCredsOpt.getOrElse(throw new scala.IllegalArgumentException(s"Did not find valid Github credentials in ${credentialFile}"))
-
-    creds
+    githubCredsOpt.getOrElse(throw new scala.IllegalArgumentException(s"Did not find valid Github credentials in $credentialFile"))
   }
 
   def findGithubCredsInFile(file:Path):Option[ServiceCredentials] = {

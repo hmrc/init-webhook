@@ -58,11 +58,7 @@ object GitType extends Enumeration {
 }
 
 
-trait Github {
-
-  def githubHttp: GithubHttp
-
-  def githubUrls: GithubUrls
+class Github(githubHttp: GithubHttp,githubUrls: GithubUrls) {
 
   def getExistingWebhooks(repoName: String) = {
 

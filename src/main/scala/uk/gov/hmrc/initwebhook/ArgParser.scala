@@ -16,14 +16,29 @@
 
 package uk.gov.hmrc.initwebhook
 
-import uk.gov.hmrc.initwebhook.GitType.{Open, GitType}
+import scopt.Read
+import uk.gov.hmrc.initwebhook.GitType.{GitType, Open}
+
+import scala.util.Try
+
+
 
 
 object ArgParser {
 
-  val defaultEvents = Seq("issues", "pull_request", "pull_request_review_comment", "release", "status")
+  object GithubEvents extends Enumeration {
+    val issues, pull_request, pull_request_review_comment, release, status = Value
+  }
+
+//  val defaultEvents = Seq("issues", "pull_request", "pull_request_review_comment", "release", "status")
+  val defaultEvents = GithubEvents.values.toSeq.map(_.toString)
 
   implicit val weekDaysRead: scopt.Read[GitType.Value] = scopt.Read.reads(GitType withName)
+
+  implicit def optionStringRead: Read[Option[String]] = Read.reads { (s: String) =>
+    Option(s)
+  }
+
 
 
   case class Config(
@@ -32,6 +47,7 @@ object ArgParser {
                      org :String = "",
                      repoNames: Seq[String] = Seq(),
                      webhookUrl: String = "",
+                     webhookSecret: Option[String] = None,
                      events: Seq[String] = defaultEvents,
                      verbose: Boolean = false) {
 
@@ -67,12 +83,30 @@ object ArgParser {
       c.copy(events = x)
     } text "coma separated events to for notifiation"
 
+    validate { x =>
+      val t = Try(GithubEvents.withName(x))
+      if(t.isSuccess) success
+      else failure(s"$x is not a valid ServiceHookType. Valid values are: ${WebHookType.values.mkString(", ")}")
+    }
+      .action {(x, c) =>
+        c.copy(webHookType = WebHookType.withName(x))
+      }
+
     opt[String]("webhook-url") abbr "wu" required() action { (x, c) =>
       c.copy(webhookUrl = x)
     } text "the url to add as a github webhook"
 
+    opt[Option[String]]("webhook-secret")
+      .optional()
+      .action { (x, c) =>
+        c.copy(webhookSecret = x)
+      }
+      .text("Webhook secret key to be added to the Webhook")
+
     opt[Unit]('v', "verbose") action { (x, c) =>
       c.copy(verbose = true)
     } text "verbose mode (debug logging)"
+
+
   }
 }

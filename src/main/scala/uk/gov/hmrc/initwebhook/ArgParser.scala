@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 HM Revenue & Customs
+ * Copyright 2017 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 package uk.gov.hmrc.initwebhook
 
 import scopt.Read
-import uk.gov.hmrc.initwebhook.GitType.{GitType, Open}
 
 import scala.util.Try
 
@@ -26,34 +25,7 @@ import scala.util.Try
 
 object ArgParser {
 
-  object GithubEvents extends Enumeration {
-    val issues, pull_request, pull_request_review_comment, release, status = Value
-  }
-
-//  val defaultEvents = Seq("issues", "pull_request", "pull_request_review_comment", "release", "status")
-  val defaultEvents = GithubEvents.values.toSeq.map(_.toString)
-
-  implicit val weekDaysRead: scopt.Read[GitType.Value] = scopt.Read.reads(GitType withName)
-
-  implicit def optionStringRead: Read[Option[String]] = Read.reads { (s: String) =>
-    Option(s)
-  }
-
-
-
-  case class Config(
-                     credentialsFile : String ="",
-                     gitApiBaseUrl : String = "",
-                     org :String = "",
-                     repoNames: Seq[String] = Seq(),
-                     webhookUrl: String = "",
-                     webhookSecret: Option[String] = None,
-                     events: Seq[String] = defaultEvents,
-                     verbose: Boolean = false) {
-
-
-  }
-
+  import GithubEvents._
   val parser = new scopt.OptionParser[Config]("init-webhook") {
 
     override def showUsageOnError = true
@@ -79,24 +51,24 @@ object ArgParser {
       c.copy(repoNames = x)
     } text "the name of the github repository"
 
-    opt[Seq[String]]("events") abbr "e" valueName "<event1>,<event2>..." action { (x, c) =>
-      c.copy(events = x)
-    } text "coma separated events to for notifiation"
-
-    validate { x =>
-      val t = Try(GithubEvents.withName(x))
-      if(t.isSuccess) success
-      else failure(s"$x is not a valid ServiceHookType. Valid values are: ${WebHookType.values.mkString(", ")}")
-    }
-      .action {(x, c) =>
-        c.copy(webHookType = WebHookType.withName(x))
+    opt[Seq[String]]("events").abbr("e").valueName("<event1>,<event2>...")
+      .action { (x, c) =>
+        c.copy(events = x)
+      }
+      .text("comma separated events to for notification")
+      .validate { x =>
+        val t = Try(GithubEvents.withNames(x))
+        if(t.isSuccess) success
+        else failure(s"invalid github event found in $x.\n\tValid values are: ${GithubEvents.values.mkString(", ")}")
+      }.action { (x, c) =>
+        c.copy(events = withNames(x).map(_.toString))
       }
 
     opt[String]("webhook-url") abbr "wu" required() action { (x, c) =>
       c.copy(webhookUrl = x)
     } text "the url to add as a github webhook"
 
-    opt[Option[String]]("webhook-secret")
+    opt[Option[String]]("webhook-secret").abbr("ws")
       .optional()
       .action { (x, c) =>
         c.copy(webhookSecret = x)
@@ -109,4 +81,25 @@ object ArgParser {
 
 
   }
+
+
+  implicit val weekDaysRead: scopt.Read[GitType.Value] = scopt.Read.reads(GitType withName)
+
+  implicit def optionStringRead: Read[Option[String]] = Read.reads { (s: String) =>
+    Option(s)
+  }
+
+  case class Config(
+                     credentialsFile: String = "",
+                     gitApiBaseUrl: String = "",
+                     org: String = "",
+                     repoNames: Seq[String] = Seq(),
+                     webhookUrl: String = "",
+                     webhookSecret: Option[String] = None,
+                     events: Seq[String] = GithubEvents.defaultEvents,
+                     verbose: Boolean = false) {
+
+
+  }
+
 }

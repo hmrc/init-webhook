@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 HM Revenue & Customs
+ * Copyright 2017 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -93,13 +93,14 @@ class Github(githubHttp: GithubHttp,githubUrls: GithubUrls) {
 
   private def createHook(repoName: String, webHookCreateConfig: WebHookCreateConfig, events: Seq[String]): Future[String] = {
     import webHookCreateConfig._
+    val secretEntry = webhookSecret.fold("")(_ => s""" "secret": "${webhookSecret.get}",""")
     val payload = s"""{
                      |"name": "web",
                      |"active": true,
                      |"events": ${Json.toJson(events).toString()},
                      |"config": {
                      | "url": "$webhookUrl",
-                     | "secret": "$webhookSecret",
+                     | $secretEntry
                      | "content_type": "json"
                      |}
                      |}
@@ -112,5 +113,3 @@ class Github(githubHttp: GithubHttp,githubUrls: GithubUrls) {
 
   def close() = githubHttp.close()
 }
-
-

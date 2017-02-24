@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 HM Revenue & Customs
+ * Copyright 2017 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,10 +29,10 @@ import scala.util.{Failure, Success, Try}
 
 
 class RequestException(request: WSRequest, response: WSResponse)
-  extends Exception(s"Got status ${response.status}: ${request.method} ${request.url} ${response.body}") {
+  extends Exception(s"Got status ${response.status}: ${request.method} ${request.url} ${response.body}")
 
-}
-
+case class WebHookCreateConfig(webhookUrl: String,
+                               webhookSecret: Option[String])
 
 case class Webhook(id: Int, name: String, url: String, config: HookConfig)
 
@@ -79,24 +79,28 @@ class Github(githubHttp: GithubHttp,githubUrls: GithubUrls) {
     }
   }
 
-  def tryCreateWebhook(repoName: String, webhookUrl: String, events: Seq[String]): Future[Try[String]] = {
+  def tryCreateWebhook(repoName: String, webHookCreateConfig:WebHookCreateConfig, events: Seq[String]): Future[Try[String]] = {
+    import webHookCreateConfig._
     Log.info(s"creating github webhook for repo '$repoName' with webhook URL '$webhookUrl', with events : ${events.mkString(",")}")
 
     tryDeleteExistingWebhooks(repoName, webhookUrl).flatMap { deleteOps =>
       val failedDeletes = deleteOps.filter(_.isFailure)
       if (failedDeletes.isEmpty)
-        createHook(repoName, webhookUrl, events).liftToTry
+        createHook(repoName, webHookCreateConfig, events).liftToTry
       else Future.successful(Failure(new Exception(s"Failed to create web hook for repo : $repoName")))
     }
   }
 
-  private def createHook(repoName: String, webhookUrl: String, events: Seq[String]): Future[String] = {
+  private def createHook(repoName: String, webHookCreateConfig: WebHookCreateConfig, events: Seq[String]): Future[String] = {
+    import webHookCreateConfig._
+    val secretEntry = webhookSecret.fold("")(_ => s""" "secret": "${webhookSecret.get}",""")
     val payload = s"""{
                      |"name": "web",
                      |"active": true,
                      |"events": ${Json.toJson(events).toString()},
                      |"config": {
                      | "url": "$webhookUrl",
+                     | $secretEntry
                      | "content_type": "json"
                      |}
                      |}
@@ -109,5 +113,3 @@ class Github(githubHttp: GithubHttp,githubUrls: GithubUrls) {
 
   def close() = githubHttp.close()
 }
-
-

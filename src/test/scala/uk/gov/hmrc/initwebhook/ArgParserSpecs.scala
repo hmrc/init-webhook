@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 HM Revenue & Customs
+ * Copyright 2017 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,8 +26,7 @@ class ArgParserSpecs extends WordSpec with Matchers with FutureValues with WireM
   "ArgParser" should {
     "create correct config" in {
 
-
-      var args = Array("""-cf /credentials/file -h http://api.base.url -o org -rn repo1,repo2 -wu hook-url -e event1,event2 """.split(" "): _*)
+      var args = Array("""-cf /credentials/file -h http://api.base.url -o org -rn repo1,repo2 -wu hook-url -ws S3CR3T -e push,team_add """.split(" "): _*)
 
 
       ArgParser.parser.parse(args, Config()).value shouldBe Config(
@@ -36,9 +35,10 @@ class ArgParserSpecs extends WordSpec with Matchers with FutureValues with WireM
         "org",
         Seq("repo1", "repo2"),
         "hook-url",
-        Seq("event1", "event2"))
+        Some("S3CR3T"),
+        Seq("push", "team_add"))
 
-      args = Array("""--cred-file-path /credentials/file --api-host http://api.base.url --org org --repo-names repo1,repo2 --webhook-url hook-url --events event1,event2 """.split(" "): _*)
+      args = Array("""--cred-file-path /credentials/file --api-host http://api.base.url --org org --repo-names repo1,repo2 --webhook-url hook-url --webhook-secret S3CR3T --events push,team_add """.split(" "): _*)
 
 
       ArgParser.parser.parse(args, Config()).value shouldBe Config(
@@ -47,9 +47,25 @@ class ArgParserSpecs extends WordSpec with Matchers with FutureValues with WireM
         "org",
         Seq("repo1", "repo2"),
         "hook-url",
-        Seq("event1", "event2")
+        Some("S3CR3T"),
+        Seq("push", "team_add")
       )
 
+    }
+
+    "webhook secret is optional" in {
+
+      var args = Array("""-cf /credentials/file -h http://api.base.url -o org -rn repo1,repo2 -wu hook-url -e push,team_add """.split(" "): _*)
+
+
+      ArgParser.parser.parse(args, Config()).value shouldBe Config(
+        "/credentials/file",
+        "http://api.base.url",
+        "org",
+        Seq("repo1", "repo2"),
+        "hook-url",
+        None,
+        Seq("push", "team_add"))
     }
   }
 }

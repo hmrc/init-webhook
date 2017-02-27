@@ -59,11 +59,11 @@ object Main {
 
     try {
 
-      val createHooksF = Future.sequence(
-        config.repoNames.map(repon => github.tryCreateWebhook(repon, webHookCreateConfig, config.events))
+      val createHooksFuture = Future.sequence(
+        config.repoNames.map(repoName => github.tryCreateWebhook(repoName, webHookCreateConfig, config.events))
       )
 
-      createHooksF.map(_.filter(_.isFailure)).map { failures =>
+      createHooksFuture.map(_.filter(_.isFailure)).map { failures =>
         val failedMessages: Seq[String] = failures.collect { case Failure(t) => t.getMessage }
         if (failedMessages.nonEmpty) {
           val errorMessage =

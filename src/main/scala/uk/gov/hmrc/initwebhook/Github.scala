@@ -26,8 +26,6 @@ import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
 
-
-
 class RequestException(request: WSRequest, response: WSResponse)
   extends Exception(s"Got status ${response.status}: ${request.method} ${request.url} ${response.body}")
 
@@ -40,9 +38,7 @@ case class Webhook(id: Int, name: String, url: String, config: HookConfig)
 case class HookConfig(url: Option[String])
 
 object HookConfig {
-
   implicit val jsonFormat = Json.format[HookConfig]
-
 }
 
 object Webhook {
@@ -50,15 +46,13 @@ object Webhook {
 }
 
 
-
-
 object GitType extends Enumeration {
   type GitType = Value
-  val Open , Enterprise = Value
+  val Open, Enterprise = Value
 }
 
 
-class Github(githubHttp: GithubHttp,githubUrls: GithubUrls) {
+class Github(githubHttp: GithubHttp, githubUrls: GithubUrls) {
 
   def getExistingWebhooks(repoName: String) = {
 
@@ -79,7 +73,7 @@ class Github(githubHttp: GithubHttp,githubUrls: GithubUrls) {
     }
   }
 
-  def tryCreateWebhook(repoName: String, webHookCreateConfig:WebHookCreateConfig, events: Seq[String]): Future[Try[String]] = {
+  def tryCreateWebhook(repoName: String, webHookCreateConfig: WebHookCreateConfig, events: Seq[String]): Future[Try[String]] = {
     import webHookCreateConfig._
     Log.info(s"creating github webhook for repo '$repoName' with webhook URL '$webhookUrl', with events : ${events.mkString(",")}")
 
@@ -91,21 +85,18 @@ class Github(githubHttp: GithubHttp,githubUrls: GithubUrls) {
     }
   }
 
+  case class Config(url: String, secret: Option[String], content_type: String)
+  case class Payload(name: String, active: Boolean, events: Seq[String], config: Config)
+
   private def createHook(repoName: String, webHookCreateConfig: WebHookCreateConfig, events: Seq[String]): Future[String] = {
     import webHookCreateConfig._
-    val secretEntry = webhookSecret.fold("")(_ => s""" "secret": "${webhookSecret.get}",""")
-    val payload = s"""{
-                     |"name": "web",
-                     |"active": true,
-                     |"events": ${Json.toJson(events).toString()},
-                     |"config": {
-                     | "url": "$webhookUrl",
-                     | $secretEntry
-                     | "content_type": "json"
-                     |}
-                     |}
-                 """.stripMargin
-    githubHttp.postJsonString(githubUrls.webhook(repoName), payload).map {
+    implicit val configJsonFormat = Json.format[Config]
+    implicit val payloadJsonFormat = Json.format[Payload]
+
+    val config = Config(webhookUrl, webhookSecret, "json")
+    val payload = Payload("web", active = true, events, config)
+
+    githubHttp.postJsonString(githubUrls.webhook(repoName), payloadJsonFormat.writes(payload).toString).map {
       response =>
         (Json.parse(response) \ "url").as[String]
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 HM Revenue & Customs
+ * Copyright 2017 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,11 +55,12 @@ object Main {
   def start(config: Config): Unit = {
 
     val github = buildGithub(config.credentialsFile, config.gitApiBaseUrl, config.org)
+    val webHookCreateConfig = WebHookCreateConfig(config.webhookUrl, config.webhookSecret)
 
     try {
 
       val createHooksF = Future.sequence(
-        config.repoNames.map(repon => github.tryCreateWebhook(repon, config.webhookUrl, config.events))
+        config.repoNames.map(repon => github.tryCreateWebhook(repon, webHookCreateConfig, config.events))
       )
 
       createHooksF.map(_.filter(_.isFailure)).map { failures =>

@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 HM Revenue & Customs
+ * Copyright 2017 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -117,7 +117,7 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
         willRespondWith = (200, Some(gitHubResponse))
       )
 
-      val webhookResponse = github.tryCreateWebhook("domain", "http://webhookurl", Seq("event1", "event2", "event3")).await
+      val webhookResponse = github.tryCreateWebhook("domain", WebHookCreateConfig("http://webhookurl", None), Seq("push", "create", "team_add")).await
 
       assertRequest(
         method = POST,
@@ -125,10 +125,55 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
         jsonBody = Some( s"""{
                             |   "name": "web",
                             |   "active": true,
-                            |   "events": ["event1","event2","event3"],
+                            |   "events": ["push","create","team_add"],
                             |   "config": {
                             |       "url": "http://webhookurl",
                             |       "content_type": "json"
+                            |   }
+                            |}
+                 """.stripMargin)
+      )
+
+
+      webhookResponse.get shouldBe "https://api.github.com/repos/hmrc/domain/hooks/1"
+    }
+
+    "createWebhook create webhook with a secret" in {
+      val gitHubResponse =
+        """
+          |{
+          |   "id": 1,
+          |   "url": "https://api.github.com/repos/hmrc/domain/hooks/1",
+          |   "test_url": "https://api.github.com/repos/hmrc/domain/hooks/1/test",
+          |   "ping_url": "https://api.github.com/repos/hmrc/domain/hooks/1/pings"
+          |}
+        """.stripMargin
+
+      givenGitHubExpects(
+        method = GET,
+        url = "/repos/hmrc/domain/hooks",
+        willRespondWith = (200, Some("[]"))
+      )
+
+      givenGitHubExpects(
+        method = POST,
+        url = "/repos/hmrc/domain/hooks",
+        willRespondWith = (200, Some(gitHubResponse))
+      )
+
+      val webhookResponse = github.tryCreateWebhook("domain", WebHookCreateConfig("http://webhookurl", Some("S3CR3T")), Seq("push", "create", "team_add")).await
+
+      assertRequest(
+        method = POST,
+        url = "/repos/hmrc/domain/hooks",
+        jsonBody = Some( s"""{
+                            |   "name": "web",
+                            |   "active": true,
+                            |   "events": ["push","create","team_add"],
+                            |   "config": {
+                            |       "url": "http://webhookurl",
+                            |       "secret": "S3CR3T",
+                            |       "content_type": "json",
                             |   }
                             |}
                  """.stripMargin)
@@ -173,7 +218,7 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
       )
 
 
-      val webhookResponse: Try[String] = github.tryCreateWebhook("domain", "http://webhookurl", Seq("event1", "event2", "event3")).await
+      val webhookResponse: Try[String] = github.tryCreateWebhook("domain", WebHookCreateConfig("http://webhookurl", None), Seq("push", "create", "team_add")).await
 
 
       assertRequest(
@@ -190,7 +235,7 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
         jsonBody = Some( s"""{
                             |   "name": "web",
                             |   "active": true,
-                            |   "events": ["event1","event2","event3"],
+                            |   "events": ["push","create","team_add"],
                             |   "config": {
                             |       "url": "http://webhookurl",
                             |       "content_type": "json"
@@ -218,7 +263,7 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
         willRespondWith = (400, None)
       )
 
-      github.tryCreateWebhook("domain", "http://webhookurl", Seq("event1", "event2", "event3")).await
+      github.tryCreateWebhook("domain", WebHookCreateConfig("http://webhookurl", None), Seq("push", "create", "team_add")).await
 
       endpointMock.verifyThat(0, postRequestedFor(urlEqualTo("/repos/hmrc/domain/hooks")))
     }

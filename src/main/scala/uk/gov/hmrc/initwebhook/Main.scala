@@ -54,6 +54,7 @@ object Main {
 
   def start(config: Config): Unit = {
 
+    println(config.webhookSecret)
     val github = buildGithub(config.credentialsFile, config.gitApiBaseUrl, config.org)
     val webHookCreateConfig = WebHookCreateConfig(config.webhookUrl, config.webhookSecret)
 

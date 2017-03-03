@@ -71,6 +71,7 @@ object ArgParser {
     opt[Option[String]]("webhook-secret").abbr("ws")
       .optional()
       .action { (x, c) =>
+        println(s"x(parser):$x")
         c.copy(webhookSecret = x)
       }
       .text("Webhook secret key to be added to the Webhook")

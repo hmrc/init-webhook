@@ -75,7 +75,8 @@ class Github(githubHttp: GithubHttp, githubUrls: GithubUrls) {
 
   def tryCreateWebhook(repoName: String, webHookCreateConfig: WebHookCreateConfig, events: Seq[String]): Future[Try[String]] = {
     import webHookCreateConfig._
-    Log.info(s"creating github webhook for repo '$repoName' with webhook URL '$webhookUrl', with events : ${events.mkString(",")}")
+    Log.info(s"creating github webhook for repo '$repoName' with webhook URL '$webhookUrl', with events : ${events.mkString(",")} ")
+    Log.info(s"chicken${webHookCreateConfig.webhookSecret}")
 
     tryDeleteExistingWebhooks(repoName, webhookUrl).flatMap { deleteOps =>
       val failedDeletes = deleteOps.filter(_.isFailure)

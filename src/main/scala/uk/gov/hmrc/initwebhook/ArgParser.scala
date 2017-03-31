@@ -48,7 +48,7 @@ object ArgParser {
     } text "the name of the github organization"
 
     opt[Seq[String]]("repo-names") abbr "rn" required() valueName "<repo1>,<repo3>..." action { (x, c) =>
-      c.copy(repoNames = x)
+      c.copy(repoNames = x.map(_.trim))
     } text "the name of the github repository"
 
     opt[Seq[String]]("events").abbr("e").valueName("<event1>,<event2>...")

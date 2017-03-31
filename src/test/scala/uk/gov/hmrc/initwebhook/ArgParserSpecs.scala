@@ -26,10 +26,11 @@ class ArgParserSpecs extends WordSpec with Matchers with FutureValues with WireM
   "ArgParser" should {
     "create correct config" in {
 
-      var args = Array("""-cf /credentials/file -h http://api.base.url -o org -rn repo1,repo2 -wu hook-url -ws S3CR3T -e push,team_add """.split(" "): _*)
+      var args = Seq("-cf","/credentials/file","-h","http://api.base.url","-o","org","-rn","repo1,repo2","-wu","hook-url","-ws","S3CR3T","-e","push,team_add")
 
+      val maybeConfig = ArgParser.parser.parse(args, Config())
 
-      ArgParser.parser.parse(args, Config()).value shouldBe Config(
+      maybeConfig.value shouldBe Config(
         "/credentials/file",
        "http://api.base.url",
         "org",
@@ -50,6 +51,23 @@ class ArgParserSpecs extends WordSpec with Matchers with FutureValues with WireM
         Some("S3CR3T"),
         Seq("push", "team_add")
       )
+
+    }
+
+    "trim spaces in repo names argument" in {
+
+      var args = Seq("-cf","/credentials/file","-h","http://api.base.url","-o","org","-rn"," repo1 , repo2 ","-wu","hook-url","-ws","S3CR3T","-e","push,team_add")
+
+      val maybeConfig = ArgParser.parser.parse(args, Config())
+
+      maybeConfig.value shouldBe Config(
+        "/credentials/file",
+       "http://api.base.url",
+        "org",
+        Seq("repo1", "repo2"),
+        "hook-url",
+        Some("S3CR3T"),
+        Seq("push", "team_add"))
 
     }
 

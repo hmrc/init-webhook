@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 HM Revenue & Customs
+ * Copyright 2018 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,27 +16,22 @@
 
 package uk.gov.hmrc.initwebhook
 
-import java.io.File
-
 import ch.qos.logback.classic.{Level, Logger}
 import org.slf4j.LoggerFactory
 import uk.gov.hmrc.initwebhook.ArgParser.Config
-import uk.gov.hmrc.initwebhook.GitType.{Open, GitType}
+import uk.gov.hmrc.initwebhook.ImplicitPimps._
+
 import scala.concurrent.ExecutionContext.Implicits.global
-
-import ImplicitPimps._
-
 import scala.concurrent.Future
-import scala.util.{Success, Failure, Try}
+import scala.util.Failure
 
 object Main {
 
-  def buildGithub(credentialsFile: String, apiBaseUrl: String, org: String) = {
+  def buildGithub(credentialsFile: String, apiBaseUrl: String, org: String) =
     new Github(
       new GithubHttp(ServiceCredentials(credentialsFile)),
       new GithubUrls(apiBaseUrl, org)
     )
-  }
 
   def main(args: Array[String]) {
 
@@ -53,8 +48,8 @@ object Main {
   }
 
   def start(config: Config): Unit = {
-    val github = buildGithub(config.credentialsFile, config.gitApiBaseUrl, config.org)
-    val webHookCreateConfig = WebHookCreateConfig(config.webhookUrl, config.webhookSecret)
+    val github              = buildGithub(config.credentialsFile, config.gitApiBaseUrl, config.org)
+    val webHookCreateConfig = WebHookCreateConfig(config.webhookUrl, config.webhookSecret, config.contentType)
 
     try {
 
@@ -62,15 +57,19 @@ object Main {
         config.repoNames.map(repoName => github.tryCreateWebhook(repoName, webHookCreateConfig, config.events))
       )
 
-      createHooksFuture.map(_.filter(_.isFailure)).map { failures =>
-        val failedMessages: Seq[String] = failures.collect { case Failure(t) => t.getMessage }
-        if (failedMessages.nonEmpty) {
-          val errorMessage =
-            "########### Failure while creating some repository hooks, please see previous errors ############\n" + failedMessages.mkString("\n")
+      createHooksFuture
+        .map(_.filter(_.isFailure))
+        .map { failures =>
+          val failedMessages: Seq[String] = failures.collect { case Failure(t) => t.getMessage }
+          if (failedMessages.nonEmpty) {
+            val errorMessage =
+              "########### Failure while creating some repository hooks, please see previous errors ############\n" + failedMessages
+                .mkString("\n")
 
-          throw new RuntimeException(errorMessage)
+            throw new RuntimeException(errorMessage)
+          }
         }
-      }.await
+        .await
 
     } finally {
       github.close()

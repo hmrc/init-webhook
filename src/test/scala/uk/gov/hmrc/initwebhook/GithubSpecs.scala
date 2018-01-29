@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 HM Revenue & Customs
+ * Copyright 2018 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,17 +23,12 @@ import com.github.tomakehurst.wiremock.http.RequestMethod._
 import org.scalatest.{Matchers, WordSpec}
 import play.api.libs.json.Json
 
-import scala.concurrent.Future
-import scala.util.{Try, Failure, Success}
-import scala.concurrent.ExecutionContext.Implicits.global
-
+import scala.util.Try
 
 class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMockEndpoints {
 
-
   val creds: ServiceCredentials = ServiceCredentials("", "")
-  val github: Github = new Github(new GithubHttp(creds), new GithubUrls(endpointMockUrl, "hmrc"))
-
+  val github: Github            = new Github(new GithubHttp(creds), new GithubUrls(endpointMockUrl, "hmrc"))
 
   val notificationUrl = "http://webhookurl"
 
@@ -42,7 +37,7 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
        |[
        |{
        |   "id": 1,
-       |   "url": "${endpointMockUrl}/repos/hmrc/domain/hooks/1",
+       |   "url": "$endpointMockUrl/repos/hmrc/domain/hooks/1",
        |   "test_url": "https://api.github.com/repos/hmrc/domain/hooks/1/test",
        |   "ping_url": "https://api.github.com/repos/hmrc/domain/hooks/1/pings",
        |   "name": "web",
@@ -92,7 +87,6 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
        |]
         """.stripMargin
 
-
   "Github" should {
     "createWebhook successfully create webhook when not already exists" in {
       val gitHubResponse =
@@ -106,34 +100,38 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
         """.stripMargin
 
       givenGitHubExpects(
-        method = GET,
-        url = "/repos/hmrc/domain/hooks",
+        method          = GET,
+        url             = "/repos/hmrc/domain/hooks",
         willRespondWith = (200, Some("[]"))
       )
 
       givenGitHubExpects(
-        method = POST,
-        url = "/repos/hmrc/domain/hooks",
+        method          = POST,
+        url             = "/repos/hmrc/domain/hooks",
         willRespondWith = (200, Some(gitHubResponse))
       )
 
-      val webhookResponse = github.tryCreateWebhook("domain", WebHookCreateConfig("http://webhookurl", None), Seq("push", "create", "team_add")).await
+      val webhookResponse = github
+        .tryCreateWebhook(
+          "domain",
+          WebHookCreateConfig("http://webhookurl", None, "form"),
+          Seq("push", "create", "team_add"))
+        .await
 
       assertRequest(
-        method = POST,
-        url = "/repos/hmrc/domain/hooks",
-        jsonBody = Some( s"""{
+        method   = POST,
+        url      = "/repos/hmrc/domain/hooks",
+        jsonBody = Some(s"""{
                             |   "name": "web",
                             |   "active": true,
                             |   "events": ["push","create","team_add"],
                             |   "config": {
                             |       "url": "http://webhookurl",
-                            |       "content_type": "json"
+                            |       "content_type": "form"
                             |   }
                             |}
                  """.stripMargin)
       )
-
 
       webhookResponse.get shouldBe "https://api.github.com/repos/hmrc/domain/hooks/1"
     }
@@ -150,23 +148,28 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
         """.stripMargin
 
       givenGitHubExpects(
-        method = GET,
-        url = "/repos/hmrc/domain/hooks",
+        method          = GET,
+        url             = "/repos/hmrc/domain/hooks",
         willRespondWith = (200, Some("[]"))
       )
 
       givenGitHubExpects(
-        method = POST,
-        url = "/repos/hmrc/domain/hooks",
+        method          = POST,
+        url             = "/repos/hmrc/domain/hooks",
         willRespondWith = (200, Some(gitHubResponse))
       )
 
-      val webhookResponse = github.tryCreateWebhook("domain", WebHookCreateConfig("http://webhookurl", Some("S3CR3T")), Seq("push", "create", "team_add")).await
+      val webhookResponse = github
+        .tryCreateWebhook(
+          "domain",
+          WebHookCreateConfig("http://webhookurl", Some("S3CR3T"), "json"),
+          Seq("push", "create", "team_add"))
+        .await
 
       assertRequest(
-        method = POST,
-        url = "/repos/hmrc/domain/hooks",
-        jsonBody = Some( s"""{
+        method   = POST,
+        url      = "/repos/hmrc/domain/hooks",
+        jsonBody = Some(s"""{
                             |   "name": "web",
                             |   "active": true,
                             |   "events": ["push","create","team_add"],
@@ -179,13 +182,10 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
                  """.stripMargin)
       )
 
-
       webhookResponse.get shouldBe "https://api.github.com/repos/hmrc/domain/hooks/1"
     }
 
-
     "createWebhook successfully deletes the existing web hook and re creates with new events" in {
-
 
       val gitHubCreateResponse =
         """
@@ -197,42 +197,43 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
           |}
         """.stripMargin
 
-
-
       givenGitHubExpects(
-        method = GET,
-        url = "/repos/hmrc/domain/hooks",
+        method          = GET,
+        url             = "/repos/hmrc/domain/hooks",
         willRespondWith = (200, Some(githubGetAllHooksReponse))
       )
 
       givenGitHubExpects(
-        method = DELETE,
-        url = "/repos/hmrc/domain/hooks/1",
+        method          = DELETE,
+        url             = "/repos/hmrc/domain/hooks/1",
         willRespondWith = (200, None)
       )
 
       givenGitHubExpects(
-        method = POST,
-        url = "/repos/hmrc/domain/hooks",
+        method          = POST,
+        url             = "/repos/hmrc/domain/hooks",
         willRespondWith = (200, Some(gitHubCreateResponse))
       )
 
-
-      val webhookResponse: Try[String] = github.tryCreateWebhook("domain", WebHookCreateConfig("http://webhookurl", None), Seq("push", "create", "team_add")).await
-
+      val webhookResponse: Try[String] = github
+        .tryCreateWebhook(
+          "domain",
+          WebHookCreateConfig("http://webhookurl", None, "json"),
+          Seq("push", "create", "team_add"))
+        .await
 
       assertRequest(
-        method = DELETE,
-        url = "/repos/hmrc/domain/hooks/1",
+        method   = DELETE,
+        url      = "/repos/hmrc/domain/hooks/1",
         jsonBody = None
       )
 
       endpointMock.verifyThat(0, deleteRequestedFor(urlEqualTo("/repos/hmrc/domain/hooks/3")))
 
       assertRequest(
-        method = POST,
-        url = "/repos/hmrc/domain/hooks",
-        jsonBody = Some( s"""{
+        method   = POST,
+        url      = "/repos/hmrc/domain/hooks",
+        jsonBody = Some(s"""{
                             |   "name": "web",
                             |   "active": true,
                             |   "events": ["push","create","team_add"],
@@ -244,83 +245,92 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
                  """.stripMargin)
       )
 
-
       webhookResponse.get shouldBe "https://api.github.com/repos/hmrc/domain/hooks/1"
     }
-
 
     "not create web hook if can't remove the existing webhook" in {
 
       givenGitHubExpects(
-        method = GET,
-        url = "/repos/hmrc/domain/hooks",
+        method          = GET,
+        url             = "/repos/hmrc/domain/hooks",
         willRespondWith = (200, Some(githubGetAllHooksReponse))
       )
 
       givenGitHubExpects(
-        method = DELETE,
-        url = "/repos/hmrc/domain/hooks/1",
+        method          = DELETE,
+        url             = "/repos/hmrc/domain/hooks/1",
         willRespondWith = (400, None)
       )
 
-      github.tryCreateWebhook("domain", WebHookCreateConfig("http://webhookurl", None), Seq("push", "create", "team_add")).await
+      github
+        .tryCreateWebhook(
+          "domain",
+          WebHookCreateConfig("http://webhookurl", None, "json"),
+          Seq("push", "create", "team_add"))
+        .await
 
       endpointMock.verifyThat(0, postRequestedFor(urlEqualTo("/repos/hmrc/domain/hooks")))
     }
 
   }
 
-
   case class GithubRequest(method: RequestMethod, url: String, body: Option[String]) {
 
     {
-      body.foreach { b => Json.parse(b) }
+      body.foreach { b =>
+        Json.parse(b)
+      }
     }
 
     def req: RequestPatternBuilder = {
       val builder = new RequestPatternBuilder(method, urlEqualTo(url))
-      body.map { b =>
-        builder.withRequestBody(equalToJson(b))
-      }.getOrElse(builder)
+      body
+        .map { b =>
+          builder.withRequestBody(equalToJson(b))
+        }
+        .getOrElse(builder)
     }
   }
 
   def assertRequest(
-                     method: RequestMethod,
-                     url: String,
-                     extraHeaders: Map[String, String] = Map(),
-                     jsonBody: Option[String]): Unit = {
+    method: RequestMethod,
+    url: String,
+    extraHeaders: Map[String, String] = Map(),
+    jsonBody: Option[String]): Unit = {
     val builder = new RequestPatternBuilder(method, urlEqualTo(url))
-    extraHeaders.foreach { case (k, v) =>
-      builder.withHeader(k, equalTo(v))
+    extraHeaders.foreach {
+      case (k, v) =>
+        builder.withHeader(k, equalTo(v))
     }
 
-    jsonBody.map { b =>
-      builder.withRequestBody(equalToJson(b))
-    }.getOrElse(builder)
+    jsonBody
+      .map { b =>
+        builder.withRequestBody(equalToJson(b))
+      }
+      .getOrElse(builder)
     endpointMock.verifyThat(builder)
   }
 
-  def assertRequest(req: GithubRequest): Unit = {
+  def assertRequest(req: GithubRequest): Unit =
     endpointMock.verifyThat(req.req)
-  }
 
   def givenGitHubExpects(
-                          method: RequestMethod,
-                          url: String,
-                          extraHeaders: Map[String, String] = Map(),
-                          willRespondWith: (Int, Option[String])): Unit = {
+    method: RequestMethod,
+    url: String,
+    extraHeaders: Map[String, String] = Map(),
+    willRespondWith: (Int, Option[String])): Unit = {
 
     val builder = new MappingBuilder(method, urlEqualTo(url))
       .withHeader("Content-Type", equalTo("application/json"))
 
-
     val response: ResponseDefinitionBuilder = new ResponseDefinitionBuilder()
       .withStatus(willRespondWith._1)
 
-    val resp = willRespondWith._2.map { b =>
-      response.withBody(b)
-    }.getOrElse(response)
+    val resp = willRespondWith._2
+      .map { b =>
+        response.withBody(b)
+      }
+      .getOrElse(response)
 
     builder.willReturn(resp)
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 HM Revenue & Customs
+ * Copyright 2018 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 
 package uk.gov.hmrc.initwebhook
 
-
 import play.api.libs.json._
 import play.api.libs.ws._
 import uk.gov.hmrc.initwebhook.ImplicitPimps._
@@ -25,12 +24,10 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
-
 class RequestException(request: WSRequest, response: WSResponse)
-  extends Exception(s"Got status ${response.status}: ${request.method} ${request.url} ${response.body}")
+    extends Exception(s"Got status ${response.status}: ${request.method} ${request.url} ${response.body}")
 
-case class WebHookCreateConfig(webhookUrl: String,
-                               webhookSecret: Option[String])
+case class WebHookCreateConfig(webhookUrl: String, webhookSecret: Option[String], contentType: String)
 
 case class Webhook(id: Int, name: String, url: String, config: HookConfig)
 
@@ -45,23 +42,22 @@ object Webhook {
   implicit val jsonFormat = Json.format[Webhook]
 }
 
-
 object GitType extends Enumeration {
   type GitType = Value
   val Open, Enterprise = Value
 }
 
-
 class Github(githubHttp: GithubHttp, githubUrls: GithubUrls) {
 
-  def getExistingWebhooks(repoName: String) = {
+  def getExistingWebhooks(repoName: String) =
+    githubHttp
+      .get(githubUrls.webhook(repoName))
+      .map { res =>
+        res.json.as[Seq[Webhook]]
+      }
+      .liftToTry
 
-    githubHttp.get(githubUrls.webhook(repoName)).map {
-      res => res.json.as[Seq[Webhook]]
-    }.liftToTry
-  }
-
-  def tryDeleteExistingWebhooks(repoName: String, webhookUrl: String): Future[Seq[Try[String]]] = {
+  def tryDeleteExistingWebhooks(repoName: String, webhookUrl: String): Future[Seq[Try[String]]] =
     getExistingWebhooks(repoName).flatMap {
       case Success(hooks) =>
         Future.traverse(
@@ -71,13 +67,16 @@ class Github(githubHttp: GithubHttp, githubUrls: GithubUrls) {
         )(_.liftToTry)
       case Failure(t) => Future.successful(Seq(Failure(t)))
     }
-  }
 
-  def tryCreateWebhook(repoName: String, webHookCreateConfig: WebHookCreateConfig, events: Seq[String]): Future[Try[String]] = {
-    import webHookCreateConfig._
-    Log.info(s"creating github webhook for repo '$repoName' with webhook URL '$webhookUrl', with events : ${events.mkString(",")} ")
+  def tryCreateWebhook(
+    repoName: String,
+    webHookCreateConfig: WebHookCreateConfig,
+    events: Seq[String]): Future[Try[String]] = {
+    Log.info(
+      s"creating github webhook for repo '$repoName' with webhook URL '${webHookCreateConfig.webhookUrl}', with events : ${events
+        .mkString(",")} ")
 
-    tryDeleteExistingWebhooks(repoName, webhookUrl).flatMap { deleteOps =>
+    tryDeleteExistingWebhooks(repoName, webHookCreateConfig.webhookUrl).flatMap { deleteOps =>
       val failedDeletes = deleteOps.filter(_.isFailure)
       if (failedDeletes.isEmpty)
         createHook(repoName, webHookCreateConfig, events).liftToTry
@@ -88,12 +87,15 @@ class Github(githubHttp: GithubHttp, githubUrls: GithubUrls) {
   case class Config(url: String, secret: Option[String], content_type: String)
   case class Payload(name: String, active: Boolean, events: Seq[String], config: Config)
 
-  private def createHook(repoName: String, webHookCreateConfig: WebHookCreateConfig, events: Seq[String]): Future[String] = {
-    import webHookCreateConfig._
-    implicit val configJsonFormat = Json.format[Config]
+  private def createHook(
+    repoName: String,
+    webHookCreateConfig: WebHookCreateConfig,
+    events: Seq[String]): Future[String] = {
+    implicit val configJsonFormat  = Json.format[Config]
     implicit val payloadJsonFormat = Json.format[Payload]
 
-    val config = Config(webhookUrl, webhookSecret, "json")
+    val config =
+      Config(webHookCreateConfig.webhookUrl, webHookCreateConfig.webhookSecret, webHookCreateConfig.contentType)
     val payload = Payload("web", active = true, events, config)
 
     githubHttp.postJsonString(githubUrls.webhook(repoName), payloadJsonFormat.writes(payload).toString).map {

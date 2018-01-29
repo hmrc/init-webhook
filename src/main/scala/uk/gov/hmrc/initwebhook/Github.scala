@@ -16,6 +16,7 @@
 
 package uk.gov.hmrc.initwebhook
 
+import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import play.api.libs.ws._
 import uk.gov.hmrc.initwebhook.ImplicitPimps._
@@ -84,15 +85,29 @@ class Github(githubHttp: GithubHttp, githubUrls: GithubUrls) {
     }
   }
 
-  case class Config(url: String, secret: Option[String], content_type: String)
+  case class Config(url: String, secret: Option[String], contentType: String) {
+    def toPayloadContentType: String =
+      contentType match {
+        case "application/json"                  => "json"
+        case "application/x-www-form-urlencoded" => "form"
+        case _                                   => throw new RuntimeException(s"Invalid content type $contentType")
+      }
+  }
+
   case class Payload(name: String, active: Boolean, events: Seq[String], config: Config)
 
   private def createHook(
     repoName: String,
     webHookCreateConfig: WebHookCreateConfig,
     events: Seq[String]): Future[String] = {
-    implicit val configJsonFormat  = Json.format[Config]
-    implicit val payloadJsonFormat = Json.format[Payload]
+
+    implicit val configJsonWrites: Writes[Config] = (
+      (JsPath \ "url").write[String] and
+        (JsPath \ "secret").writeNullable[String] and
+        (JsPath \ "content_type").write[String]
+    )(o => (o.url, o.secret, o.toPayloadContentType))
+
+    implicit val payloadJsonFormat: Writes[Payload] = Json.writes[Payload]
 
     val config =
       Config(webHookCreateConfig.webhookUrl, webHookCreateConfig.webhookSecret, webHookCreateConfig.contentType)

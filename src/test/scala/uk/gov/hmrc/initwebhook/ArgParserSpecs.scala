@@ -40,7 +40,7 @@ class ArgParserSpecs extends WordSpec with Matchers with FutureValues with WireM
         "-e",
         "push,team_add",
         "-ct",
-        "form"
+        "application/x-www-form-urlencoded"
       )
 
       val maybeConfig = ArgParser.parser.parse(args, Config())
@@ -50,14 +50,14 @@ class ArgParserSpecs extends WordSpec with Matchers with FutureValues with WireM
         gitApiBaseUrl   = "http://api.base.url",
         org             = "org",
         repoNames       = Seq("repo1", "repo2"),
-        contentType     = "form",
+        contentType     = "application/x-www-form-urlencoded",
         webhookUrl      = "hook-url",
         webhookSecret   = Some("S3CR3T"),
         events          = Seq("push", "team_add")
       )
 
       args = Array(
-        """--cred-file-path /credentials/file --api-host http://api.base.url --org org --repo-names repo1,repo2 --webhook-url hook-url --content-type form --webhook-secret S3CR3T --events push,team_add """
+        """--cred-file-path /credentials/file --api-host http://api.base.url --org org --repo-names repo1,repo2 --webhook-url hook-url --content-type application/x-www-form-urlencoded --webhook-secret S3CR3T --events push,team_add """
           .split(" "): _*)
 
       ArgParser.parser.parse(args, Config()).value shouldBe Config(
@@ -65,7 +65,7 @@ class ArgParserSpecs extends WordSpec with Matchers with FutureValues with WireM
         gitApiBaseUrl   = "http://api.base.url",
         org             = "org",
         repoNames       = Seq("repo1", "repo2"),
-        contentType     = "form",
+        contentType     = "application/x-www-form-urlencoded",
         webhookUrl      = "hook-url",
         webhookSecret   = Some("S3CR3T"),
         events          = Seq("push", "team_add")
@@ -89,7 +89,7 @@ class ArgParserSpecs extends WordSpec with Matchers with FutureValues with WireM
         "-ws",
         "S3CR3T",
         "-ct",
-        "form",
+        "application/x-www-form-urlencoded",
         "-e",
         "push,team_add"
       )
@@ -101,7 +101,7 @@ class ArgParserSpecs extends WordSpec with Matchers with FutureValues with WireM
         gitApiBaseUrl   = "http://api.base.url",
         org             = "org",
         repoNames       = Seq("repo1", "repo2"),
-        contentType     = "form",
+        contentType     = "application/x-www-form-urlencoded",
         webhookUrl      = "hook-url",
         webhookSecret   = Some("S3CR3T"),
         events          = Seq("push", "team_add")
@@ -112,7 +112,7 @@ class ArgParserSpecs extends WordSpec with Matchers with FutureValues with WireM
     "webhook secret is optional" in {
 
       var args = Array(
-        """-cf /credentials/file -h http://api.base.url -o org -rn repo1,repo2 -wu hook-url -ct form -e push,team_add """
+        """-cf /credentials/file -h http://api.base.url -o org -rn repo1,repo2 -wu hook-url -ct application/x-www-form-urlencoded -e push,team_add """
           .split(" "): _*)
 
       ArgParser.parser.parse(args, Config()).value shouldBe Config(
@@ -120,7 +120,7 @@ class ArgParserSpecs extends WordSpec with Matchers with FutureValues with WireM
         gitApiBaseUrl   = "http://api.base.url",
         org             = "org",
         repoNames       = Seq("repo1", "repo2"),
-        contentType     = "form",
+        contentType     = "application/x-www-form-urlencoded",
         webhookUrl      = "hook-url",
         webhookSecret   = None,
         events          = Seq("push", "team_add")

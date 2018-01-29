@@ -44,13 +44,13 @@ object ArgParser {
     } text "the name of the github organization"
 
     opt[String]("content-type") abbr "ct" required () valueName "json" validate {
-      case "json" | "form" => success
-      case _ =>
+      case "application/json" | "application/x-www-form-urlencoded" => success
+      case ct =>
         failure(
-          "Unsupported content type. Accepted values: 'json' for 'application/json' and 'form' for 'application/x-www-form-urlencoded'")
+          s"Unsupported content type '$ct'. Accepted values: 'application/json' and 'application/x-www-form-urlencoded'")
     } action { (x, c) =>
       c.copy(contentType = x)
-    } text "the body format sent to the Webhook. Accepted values: 'json' for 'application/json' and 'form' for 'application/x-www-form-urlencoded'"
+    } text "the body format sent to the Webhook. Accepted values: 'application/json' and 'application/x-www-form-urlencoded'"
 
     opt[Seq[String]]("repo-names") abbr "rn" required () valueName "<repo1>,<repo3>..." action { (x, c) =>
       c.copy(repoNames = x.map(_.trim))

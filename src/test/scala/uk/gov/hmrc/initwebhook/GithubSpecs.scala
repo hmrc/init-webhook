@@ -114,7 +114,7 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
       val webhookResponse = github
         .tryCreateWebhook(
           "domain",
-          WebHookCreateConfig("http://webhookurl", None, "form"),
+          WebHookCreateConfig("http://webhookurl", None, "application/x-www-form-urlencoded"),
           Seq("push", "create", "team_add"))
         .await
 
@@ -162,7 +162,7 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
       val webhookResponse = github
         .tryCreateWebhook(
           "domain",
-          WebHookCreateConfig("http://webhookurl", Some("S3CR3T"), "json"),
+          WebHookCreateConfig("http://webhookurl", Some("S3CR3T"), "application/json"),
           Seq("push", "create", "team_add"))
         .await
 
@@ -218,7 +218,7 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
       val webhookResponse: Try[String] = github
         .tryCreateWebhook(
           "domain",
-          WebHookCreateConfig("http://webhookurl", None, "json"),
+          WebHookCreateConfig("http://webhookurl", None, "application/json"),
           Seq("push", "create", "team_add"))
         .await
 
@@ -265,7 +265,7 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
       github
         .tryCreateWebhook(
           "domain",
-          WebHookCreateConfig("http://webhookurl", None, "json"),
+          WebHookCreateConfig("http://webhookurl", None, "application/json"),
           Seq("push", "create", "team_add"))
         .await
 

@@ -19,14 +19,13 @@ package uk.gov.hmrc.initwebhook
 import java.net.URL
 
 import play.api.libs.ws._
-import play.api.libs.ws.ning.{NingWSClientConfig, NingAsyncHttpClientConfigBuilder, NingWSClient}
+import play.api.libs.ws.ning.{NingAsyncHttpClientConfigBuilder, NingWSClient, NingWSClientConfig}
 import play.api.libs.json._
 import scala.concurrent.ExecutionContext.Implicits.global
 
-
 import scala.concurrent.Future
 
-class GithubHttp(creds: ServiceCredentials) {
+class GithubHttp(username: String, password: String) {
 
   private val ws = new NingWSClient(new NingAsyncHttpClientConfigBuilder(new NingWSClientConfig()).build())
 
@@ -37,54 +36,60 @@ class GithubHttp(creds: ServiceCredentials) {
 
   def buildJsonCall(method: String, url: URL, body: Option[JsValue] = None): WSRequest = {
 
-    val req = ws.url(url.toString)
+    val req = ws
+      .url(url.toString)
       .withMethod(method)
-      .withAuth(creds.user, creds.pass, WSAuthScheme.BASIC)
-      .withHeaders(
-        "content-type" -> "application/json")
+      .withAuth(username, password, WSAuthScheme.BASIC)
+      .withHeaders("content-type" -> "application/json")
 
     Log.debug("req = " + req)
 
-    body.map { b =>
-      req.withBody(b)
-    }.getOrElse(req)
+    body
+      .map { b =>
+        req.withBody(b)
+      }
+      .getOrElse(req)
   }
 
   def delete(url: String): Future[WSResponse] = {
     val resultF = buildJsonCall("DELETE", new URL(url)).execute()
-    resultF.map { result => result.status match {
-      case s if (s >= 200 && s < 300) || (s == 404) => result
-      case _ =>
-        val msg = s"Didn't get expected status code when writing to Github. Got status ${result.status}: DELETE ${url} ${result.body}"
-        Log.error(msg)
-        throw new scala.Exception(msg)
-    }
-    }
-  }
-
-
-  def get(url: String): Future[WSResponse] = {
-    val resultF = buildJsonCall("GET", new URL(url)).execute()
-    resultF.map { result => result.status match {
-      case s if s >= 200 && s < 300 => result
-      case _ =>
-        val msg = s"Didn't get expected status code when writing to Github. Got status ${result.status}: GET ${url} ${result.body}"
-        Log.error(msg)
-        throw new scala.Exception(msg)
-    }
-    }
-  }
-
-  def postJsonString(url: String, body: String): Future[String] = {
-    buildJsonCall("POST", new URL(url), Some(Json.parse(body))).execute().map { case result =>
+    resultF.map { result =>
       result.status match {
-        case s if s >= 200 && s < 300 => result.body
+        case s if (s >= 200 && s < 300) || (s == 404) => result
         case _ =>
-          val msg = s"Didn't get expected status code when writing to Github. Got status ${result.status}: POST ${url} ${result.body}"
+          val msg =
+            s"Didn't get expected status code when writing to Github. Got status ${result.status}: DELETE $url ${result.body}"
           Log.error(msg)
           throw new scala.Exception(msg)
       }
     }
   }
+
+  def get(url: String): Future[WSResponse] = {
+    val resultF = buildJsonCall("GET", new URL(url)).execute()
+    resultF.map { result =>
+      result.status match {
+        case s if s >= 200 && s < 300 => result
+        case _ =>
+          val msg =
+            s"Didn't get expected status code when writing to Github. Got status ${result.status}: GET $url ${result.body}"
+          Log.error(msg)
+          throw new scala.Exception(msg)
+      }
+    }
+  }
+
+  def postJsonString(url: String, body: String): Future[String] =
+    buildJsonCall("POST", new URL(url), Some(Json.parse(body))).execute().map {
+      case result =>
+        result.status match {
+          case s if s >= 200 && s < 300 => result.body
+          case _ =>
+            val msg =
+              s"Didn't get expected status code when writing to Github. Got status ${result.status}: POST $url ${result.body}"
+            Log.error(msg)
+            throw new scala.Exception(msg)
+        }
+    }
 
 }

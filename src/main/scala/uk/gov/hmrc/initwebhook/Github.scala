@@ -19,7 +19,6 @@ package uk.gov.hmrc.initwebhook
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import play.api.libs.ws._
-import uk.gov.hmrc.initwebhook.ImplicitPimps._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -43,16 +42,18 @@ object Webhook {
   implicit val jsonFormat = Json.format[Webhook]
 }
 
-object GitType extends Enumeration {
-  type GitType = Value
-  val Open, Enterprise = Value
-}
+class Github(githubHttp: GithubHttp, apiBaseUrl: String, org: String) {
 
-class Github(githubHttp: GithubHttp, githubUrls: GithubUrls) {
+  implicit class FutureOfTry[T](self: Future[T]) {
+
+    def liftToTry: Future[Try[T]] = self.map(Success(_)).recover { case t => Failure(t) }
+  }
+
+  def webhook(repoName: String) = s"$apiBaseUrl/repos/$org/$repoName/hooks"
 
   def getExistingWebhooks(repoName: String) =
     githubHttp
-      .get(githubUrls.webhook(repoName))
+      .get(webhook(repoName))
       .map { res =>
         res.json.as[Seq[Webhook]]
       }
@@ -113,9 +114,8 @@ class Github(githubHttp: GithubHttp, githubUrls: GithubUrls) {
       Config(webHookCreateConfig.webhookUrl, webHookCreateConfig.webhookSecret, webHookCreateConfig.contentType)
     val payload = Payload("web", active = true, events, config)
 
-    githubHttp.postJsonString(githubUrls.webhook(repoName), payloadJsonFormat.writes(payload).toString).map {
-      response =>
-        (Json.parse(response) \ "url").as[String]
+    githubHttp.postJsonString(webhook(repoName), payloadJsonFormat.writes(payload).toString).map { response =>
+      (Json.parse(response) \ "url").as[String]
     }
   }
 

@@ -23,6 +23,7 @@ import scala.util.Try
 object ArgParser {
 
   import GithubEvents._
+
   val parser = new scopt.OptionParser[Config]("init-webhook") {
 
     override def showUsageOnError = true
@@ -31,19 +32,23 @@ object ArgParser {
 
     help("help") text "prints this usage text"
 
-    opt[String]("cred-file-path") abbr "cf" required () valueName "/cred/file" action { (x, c) =>
-      c.copy(credentialsFile = x)
-    } text "git credentials file path"
+    opt[String]("github-username") required () action { (x, c) =>
+      c.copy(githubUsername = x)
+    } text "github username"
 
-    opt[String]("api-host") abbr "h" required () valueName "https://api.github.com" action { (x, c) =>
+    opt[String]("github-password") required () action { (x, c) =>
+      c.copy(githubPassword = x)
+    } text "github password"
+
+    opt[String]("api-host") required () valueName "https://api.github.com" action { (x, c) =>
       c.copy(gitApiBaseUrl = x)
     } text "git api base url"
 
-    opt[String]("org") abbr "o" required () valueName "hmrc" action { (x, c) =>
+    opt[String]("org") required () valueName "hmrc" action { (x, c) =>
       c.copy(org = x)
     } text "the name of the github organization"
 
-    opt[String]("content-type") abbr "ct" required () valueName "json" validate {
+    opt[String]("content-type") required () valueName "application/json" validate {
       case "application/json" | "application/x-www-form-urlencoded" => success
       case ct =>
         failure(
@@ -52,12 +57,11 @@ object ArgParser {
       c.copy(contentType = x)
     } text "the body format sent to the Webhook. Accepted values: 'application/json' and 'application/x-www-form-urlencoded'"
 
-    opt[Seq[String]]("repo-names") abbr "rn" required () valueName "<repo1>,<repo3>..." action { (x, c) =>
+    opt[Seq[String]]("repo-names") required () valueName "<repo1>,<repo3>..." action { (x, c) =>
       c.copy(repoNames = x.map(_.trim))
     } text "the name of the github repository"
 
     opt[Seq[String]]("events")
-      .abbr("e")
       .valueName("<event1>,<event2>...")
       .action { (x, c) =>
         c.copy(events = x)
@@ -72,39 +76,37 @@ object ArgParser {
         c.copy(events = withNames(x).map(_.toString))
       }
 
-    opt[String]("webhook-url") abbr "wu" required () action { (x, c) =>
+    opt[String]("webhook-url") required () action { (x, c) =>
       c.copy(webhookUrl = x)
     } text "the url to add as a github Webhook"
 
     opt[Option[String]]("webhook-secret")
-      .abbr("ws")
       .optional()
       .action { (x, c) =>
         c.copy(webhookSecret = x)
       }
       .text("Webhook secret key to be added to the Webhook")
 
-    opt[Unit]('v', "verbose") action { (x, c) =>
+    opt[Unit]("verbose") action { (x, c) =>
       c.copy(verbose = true)
     } text "verbose mode (debug logging)"
 
   }
-
-  implicit val weekDaysRead: scopt.Read[GitType.Value] = scopt.Read.reads(GitType withName)
 
   implicit def optionStringRead: Read[Option[String]] = Read.reads { (s: String) =>
     Option(s)
   }
 
   case class Config(
-    credentialsFile: String       = "",
+    githubUsername: String        = "",
+    githubPassword: String        = "",
     gitApiBaseUrl: String         = "",
     org: String                   = "",
-    repoNames: Seq[String]        = Seq(),
-    contentType: String           = "json",
+    repoNames: Seq[String]        = Seq.empty,
+    contentType: String           = "",
     webhookUrl: String            = "",
     webhookSecret: Option[String] = None,
     events: Seq[String]           = GithubEvents.defaultEvents,
-    verbose: Boolean              = false) {}
+    verbose: Boolean              = false)
 
 }

@@ -25,23 +25,23 @@ class ArgParserSpecs extends WordSpec with Matchers with WireMockEndpoints with 
     "create correct config" in {
 
       var args = Seq(
-        "-gu",
+        "--github-username",
         "my-user",
-        "-gp",
+        "--github-password",
         "my-pass",
-        "-ah",
+        "--api-host",
         "http://api.base.url",
-        "-o",
+        "--org",
         "org",
-        "-rn",
+        "--repo-names",
         "repo1,repo2",
-        "-wu",
+        "--webhook-url",
         "hook-url",
-        "-ws",
+        "--webhook-secret",
         "S3CR3T",
-        "-e",
+        "--events",
         "push,team_add",
-        "-ct",
+        "--content-type",
         "application/x-www-form-urlencoded"
       )
 
@@ -80,23 +80,23 @@ class ArgParserSpecs extends WordSpec with Matchers with WireMockEndpoints with 
     "trim spaces in repo names argument" in {
 
       var args = Seq(
-        "-gu",
+        "--github-username",
         "my-user",
-        "-gp",
+        "--github-password",
         "my-pass",
-        "-ah",
+        "--api-host",
         "http://api.base.url",
-        "-o",
+        "--org",
         "org",
-        "-rn",
+        "--repo-names",
         " repo1 , repo2 ",
-        "-wu",
+        "--webhook-url",
         "hook-url",
-        "-ws",
+        "--webhook-secret",
         "S3CR3T",
-        "-ct",
+        "--content-type",
         "application/x-www-form-urlencoded",
-        "-e",
+        "--events",
         "push,team_add"
       )
 
@@ -119,7 +119,7 @@ class ArgParserSpecs extends WordSpec with Matchers with WireMockEndpoints with 
     "webhook secret is optional" in {
 
       var args = Array(
-        """-gu my-user -gp my-pass -ah http://api.base.url -o org -rn repo1,repo2 -wu hook-url -ct application/x-www-form-urlencoded -e push,team_add """
+        """--github-username my-user --github-password my-pass --api-host http://api.base.url --org org --repo-names repo1,repo2 --webhook-url hook-url --content-type application/x-www-form-urlencoded --events push,team_add """
           .split(" "): _*)
 
       ArgParser.parser.parse(args, Config()).value shouldBe Config(
@@ -137,7 +137,7 @@ class ArgParserSpecs extends WordSpec with Matchers with WireMockEndpoints with 
 
     "only accept json or form as content type" in {
       var args = Array(
-        """-gu my-user -gp my-pass -h http://api.base.url -o org -rn repo1,repo2 -wu hook-url -ct foo -e push,team_add """
+        """--github-username my-user --github-password my-pass -h http://api.base.url --org org --repo-names repo1,repo2 --webhook-url hook-url --content-type foo --events push,team_add """
           .split(" "): _*)
 
       ArgParser.parser.parse(args, Config()) shouldBe None

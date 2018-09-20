@@ -19,19 +19,13 @@ package uk.gov.hmrc.initwebhook
 import ch.qos.logback.classic.{Level, Logger}
 import org.slf4j.LoggerFactory
 import uk.gov.hmrc.initwebhook.ArgParser.Config
-import uk.gov.hmrc.initwebhook.ImplicitPimps._
+import scala.concurrent.duration._
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{Await, Future}
 import scala.util.Failure
 
 object Main {
-
-  def buildGithub(credentialsFile: String, apiBaseUrl: String, org: String) =
-    new Github(
-      new GithubHttp(ServiceCredentials(credentialsFile)),
-      new GithubUrls(apiBaseUrl, org)
-    )
 
   def main(args: Array[String]) {
 
@@ -48,7 +42,8 @@ object Main {
   }
 
   def start(config: Config): Unit = {
-    val github              = buildGithub(config.credentialsFile, config.gitApiBaseUrl, config.org)
+    val github =
+      new Github(new GithubHttp(config.githubUsername, config.githubPassword), config.gitApiBaseUrl, config.org)
     val webHookCreateConfig = WebHookCreateConfig(config.webhookUrl, config.webhookSecret, config.contentType)
 
     try {
@@ -57,19 +52,21 @@ object Main {
         config.repoNames.map(repoName => github.tryCreateWebhook(repoName, webHookCreateConfig, config.events))
       )
 
-      createHooksFuture
-        .map(_.filter(_.isFailure))
-        .map { failures =>
-          val failedMessages: Seq[String] = failures.collect { case Failure(t) => t.getMessage }
-          if (failedMessages.nonEmpty) {
-            val errorMessage =
-              "########### Failure while creating some repository hooks, please see previous errors ############\n" + failedMessages
-                .mkString("\n")
+      Await.result(
+        createHooksFuture
+          .map(_.filter(_.isFailure))
+          .map { failures =>
+            val failedMessages: Seq[String] = failures.collect { case Failure(t) => t.getMessage }
+            if (failedMessages.nonEmpty) {
+              val errorMessage =
+                "########### Failure while creating some repository hooks, please see previous errors ############\n" + failedMessages
+                  .mkString("\n")
 
-            throw new RuntimeException(errorMessage)
-          }
-        }
-        .await
+              throw new RuntimeException(errorMessage)
+            }
+          },
+        30.seconds
+      )
 
     } finally {
       github.close()

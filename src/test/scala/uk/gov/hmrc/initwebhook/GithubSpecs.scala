@@ -20,15 +20,22 @@ import com.github.tomakehurst.wiremock.client.WireMock._
 import com.github.tomakehurst.wiremock.client.{MappingBuilder, RequestPatternBuilder, ResponseDefinitionBuilder}
 import com.github.tomakehurst.wiremock.http.RequestMethod
 import com.github.tomakehurst.wiremock.http.RequestMethod._
+import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
+import org.scalatest.mock.MockitoSugar
 import org.scalatest.{Matchers, WordSpec}
 import play.api.libs.json.Json
 
 import scala.util.Try
 
-class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMockEndpoints {
+class GithubSpecs
+    extends WordSpec
+    with Matchers
+    with ScalaFutures
+    with WireMockEndpoints
+    with MockitoSugar
+    with IntegrationPatience {
 
-  val creds: ServiceCredentials = ServiceCredentials("", "")
-  val github: Github            = new Github(new GithubHttp(creds), new GithubUrls(endpointMockUrl, "hmrc"))
+  val github: Github = new Github(new GithubHttp("", ""), endpointMockUrl, "hmrc")
 
   val notificationUrl = "http://webhookurl"
 
@@ -88,6 +95,12 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
         """.stripMargin
 
   "Github" should {
+
+    "generate correct repo hook url " in {
+      new Github(mock[GithubHttp], "http://api.base.url", "org").webhook("domain").toString shouldBe
+        "http://api.base.url/repos/org/domain/hooks"
+    }
+
     "createWebhook successfully create webhook when not already exists" in {
       val gitHubResponse =
         """
@@ -116,20 +129,20 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
           "domain",
           WebHookCreateConfig("http://webhookurl", None, "application/x-www-form-urlencoded"),
           Seq("push", "create", "team_add"))
-        .await
+        .futureValue
 
       assertRequest(
         method   = POST,
         url      = "/repos/hmrc/domain/hooks",
         jsonBody = Some(s"""{
-                            |   "name": "web",
-                            |   "active": true,
-                            |   "events": ["push","create","team_add"],
-                            |   "config": {
-                            |       "url": "http://webhookurl",
-                            |       "content_type": "form"
-                            |   }
-                            |}
+             |   "name": "web",
+             |   "active": true,
+             |   "events": ["push","create","team_add"],
+             |   "config": {
+             |       "url": "http://webhookurl",
+             |       "content_type": "form"
+             |   }
+             |}
                  """.stripMargin)
       )
 
@@ -164,21 +177,21 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
           "domain",
           WebHookCreateConfig("http://webhookurl", Some("S3CR3T"), "application/json"),
           Seq("push", "create", "team_add"))
-        .await
+        .futureValue
 
       assertRequest(
         method   = POST,
         url      = "/repos/hmrc/domain/hooks",
         jsonBody = Some(s"""{
-                            |   "name": "web",
-                            |   "active": true,
-                            |   "events": ["push","create","team_add"],
-                            |   "config": {
-                            |       "url": "http://webhookurl",
-                            |       "secret": "S3CR3T",
-                            |       "content_type": "json",
-                            |   }
-                            |}
+             |   "name": "web",
+             |   "active": true,
+             |   "events": ["push","create","team_add"],
+             |   "config": {
+             |       "url": "http://webhookurl",
+             |       "secret": "S3CR3T",
+             |       "content_type": "json",
+             |   }
+             |}
                  """.stripMargin)
       )
 
@@ -220,7 +233,7 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
           "domain",
           WebHookCreateConfig("http://webhookurl", None, "application/json"),
           Seq("push", "create", "team_add"))
-        .await
+        .futureValue
 
       assertRequest(
         method   = DELETE,
@@ -234,14 +247,14 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
         method   = POST,
         url      = "/repos/hmrc/domain/hooks",
         jsonBody = Some(s"""{
-                            |   "name": "web",
-                            |   "active": true,
-                            |   "events": ["push","create","team_add"],
-                            |   "config": {
-                            |       "url": "http://webhookurl",
-                            |       "content_type": "json"
-                            |   }
-                            |}
+             |   "name": "web",
+             |   "active": true,
+             |   "events": ["push","create","team_add"],
+             |   "config": {
+             |       "url": "http://webhookurl",
+             |       "content_type": "json"
+             |   }
+             |}
                  """.stripMargin)
       )
 
@@ -267,7 +280,7 @@ class GithubSpecs extends WordSpec with Matchers with FutureValues with WireMock
           "domain",
           WebHookCreateConfig("http://webhookurl", None, "application/json"),
           Seq("push", "create", "team_add"))
-        .await
+        .futureValue
 
       endpointMock.verifyThat(0, postRequestedFor(urlEqualTo("/repos/hmrc/domain/hooks")))
     }

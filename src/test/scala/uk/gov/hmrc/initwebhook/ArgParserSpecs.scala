@@ -29,11 +29,11 @@ class ArgParserSpecs extends WordSpec with Matchers with WireMockEndpoints with 
         "my-user",
         "--github-password",
         "my-pass",
-        "--api-host",
+        "--github-api-host",
         "http://api.base.url",
-        "--org",
+        "--github-org",
         "org",
-        "--repo-names",
+        "--repositories",
         "repo1,repo2",
         "--webhook-url",
         "hook-url",
@@ -59,15 +59,34 @@ class ArgParserSpecs extends WordSpec with Matchers with WireMockEndpoints with 
         events         = Seq("push", "team_add")
       )
 
-      args = Array(
-        """--github-username my-user --github-password my-pass --api-host http://api.base.url --org org --repo-names repo1,repo2 --webhook-url hook-url --content-type application/x-www-form-urlencoded --webhook-secret S3CR3T --events push,team_add """
-          .split(" "): _*)
+    }
 
-      ArgParser.parser.parse(args, Config()).value shouldBe Config(
+    "use the correct defaults" in {
+
+      var args = Seq(
+        "--github-username",
+        "my-user",
+        "--github-password",
+        "my-pass",
+        "--repositories",
+        "repo1,repo2",
+        "--webhook-url",
+        "hook-url",
+        "--webhook-secret",
+        "S3CR3T",
+        "--events",
+        "push,team_add",
+        "--content-type",
+        "application/x-www-form-urlencoded"
+      )
+
+      val maybeConfig = ArgParser.parser.parse(args, Config())
+
+      maybeConfig.value shouldBe Config(
         githubUsername = "my-user",
         githubPassword = "my-pass",
-        gitApiBaseUrl  = "http://api.base.url",
-        org            = "org",
+        gitApiBaseUrl  = "https://api.github.com",
+        org            = "hmrc",
         repoNames      = Seq("repo1", "repo2"),
         contentType    = "application/x-www-form-urlencoded",
         webhookUrl     = "hook-url",
@@ -84,11 +103,11 @@ class ArgParserSpecs extends WordSpec with Matchers with WireMockEndpoints with 
         "my-user",
         "--github-password",
         "my-pass",
-        "--api-host",
+        "--github-api-host",
         "http://api.base.url",
-        "--org",
+        "--github-org",
         "org",
-        "--repo-names",
+        "--repositories",
         " repo1 , repo2 ",
         "--webhook-url",
         "hook-url",
@@ -119,7 +138,7 @@ class ArgParserSpecs extends WordSpec with Matchers with WireMockEndpoints with 
     "webhook secret is optional" in {
 
       var args = Array(
-        """--github-username my-user --github-password my-pass --api-host http://api.base.url --org org --repo-names repo1,repo2 --webhook-url hook-url --content-type application/x-www-form-urlencoded --events push,team_add """
+        """--github-username my-user --github-password my-pass --github-api-host http://api.base.url --github-org org --repositories repo1,repo2 --webhook-url hook-url --content-type application/x-www-form-urlencoded --events push,team_add """
           .split(" "): _*)
 
       ArgParser.parser.parse(args, Config()).value shouldBe Config(
@@ -136,9 +155,22 @@ class ArgParserSpecs extends WordSpec with Matchers with WireMockEndpoints with 
     }
 
     "only accept json or form as content type" in {
-      var args = Array(
-        """--github-username my-user --github-password my-pass -h http://api.base.url --org org --repo-names repo1,repo2 --webhook-url hook-url --content-type foo --events push,team_add """
-          .split(" "): _*)
+      var args = Seq(
+        "--github-username",
+        "my-user",
+        "--github-password",
+        "my-pass",
+        "--repositories",
+        "repo1,repo2",
+        "--webhook-url",
+        "hook-url",
+        "--webhook-secret",
+        "S3CR3T",
+        "--events",
+        "push,team_add",
+        "--content-type",
+        "foo"
+      )
 
       ArgParser.parser.parse(args, Config()) shouldBe None
     }

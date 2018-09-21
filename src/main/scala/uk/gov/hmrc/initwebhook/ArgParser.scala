@@ -32,34 +32,20 @@ object ArgParser {
 
     help("help") text "prints this usage text"
 
-    opt[String]("github-username") required () action { (x, c) =>
-      c.copy(githubUsername = x)
-    } text "github username"
-
-    opt[String]("github-password") required () action { (x, c) =>
-      c.copy(githubPassword = x)
-    } text "github password"
-
-    opt[String]("api-host") required () valueName "https://api.github.com" action { (x, c) =>
-      c.copy(gitApiBaseUrl = x)
-    } text "git api base url"
-
-    opt[String]("org") required () valueName "hmrc" action { (x, c) =>
-      c.copy(org = x)
-    } text "the name of the github organization"
-
-    opt[String]("content-type") required () valueName "application/json" validate {
-      case "application/json" | "application/x-www-form-urlencoded" => success
-      case ct =>
-        failure(
-          s"Unsupported content type '$ct'. Accepted values: 'application/json' and 'application/x-www-form-urlencoded'")
-    } action { (x, c) =>
-      c.copy(contentType = x)
-    } text "the body format sent to the Webhook. Accepted values: 'application/json' and 'application/x-www-form-urlencoded'"
-
-    opt[Seq[String]]("repo-names") required () valueName "<repo1>,<repo3>..." action { (x, c) =>
+    opt[Seq[String]]("repositories") required () valueName "<repo1>,<repo3>..." action { (x, c) =>
       c.copy(repoNames = x.map(_.trim))
     } text "the name of the github repository"
+
+    opt[String]("webhook-url") required () action { (x, c) =>
+      c.copy(webhookUrl = x)
+    } text "the url to add as a github Webhook"
+
+    opt[Option[String]]("webhook-secret")
+      .optional()
+      .action { (x, c) =>
+        c.copy(webhookSecret = x)
+      }
+      .text("Webhook secret key to be added to the Webhook")
 
     opt[Seq[String]]("events")
       .valueName("<event1>,<event2>...")
@@ -76,16 +62,30 @@ object ArgParser {
         c.copy(events = withNames(x).map(_.toString))
       }
 
-    opt[String]("webhook-url") required () action { (x, c) =>
-      c.copy(webhookUrl = x)
-    } text "the url to add as a github Webhook"
+    opt[String]("content-type") required () valueName "application/json" validate {
+      case "application/json" | "application/x-www-form-urlencoded" => success
+      case ct =>
+        failure(
+          s"Unsupported content type '$ct'. Accepted values: 'application/json' and 'application/x-www-form-urlencoded'")
+    } action { (x, c) =>
+      c.copy(contentType = x)
+    } text "the body format sent to the Webhook. Accepted values: 'application/json' and 'application/x-www-form-urlencoded'"
 
-    opt[Option[String]]("webhook-secret")
-      .optional()
-      .action { (x, c) =>
-        c.copy(webhookSecret = x)
-      }
-      .text("Webhook secret key to be added to the Webhook")
+    opt[String]("github-username") required () action { (x, c) =>
+      c.copy(githubUsername = x)
+    } text "github username"
+
+    opt[String]("github-password") required () action { (x, c) =>
+      c.copy(githubPassword = x)
+    } text "github password"
+
+    opt[String]("github-api-host") optional () action { (x, c) =>
+      c.copy(gitApiBaseUrl = x)
+    } text "git api base url. Defaults to https://api.github.com"
+
+    opt[String]("github-org") optional () action { (x, c) =>
+      c.copy(org = x)
+    } text "the name of the github organization. Defaults to hmrc"
 
     opt[Unit]("verbose") action { (x, c) =>
       c.copy(verbose = true)
@@ -100,8 +100,8 @@ object ArgParser {
   case class Config(
     githubUsername: String        = "",
     githubPassword: String        = "",
-    gitApiBaseUrl: String         = "",
-    org: String                   = "",
+    gitApiBaseUrl: String         = "https://api.github.com",
+    org: String                   = "hmrc",
     repoNames: Seq[String]        = Seq.empty,
     contentType: String           = "",
     webhookUrl: String            = "",

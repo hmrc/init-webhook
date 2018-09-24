@@ -25,7 +25,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 import scala.concurrent.Future
 
-class GithubHttp(username: String, password: String) {
+class GithubHttp(username: String, token: String) {
 
   private val ws = new NingWSClient(new NingAsyncHttpClientConfigBuilder(new NingWSClientConfig()).build())
 
@@ -39,7 +39,7 @@ class GithubHttp(username: String, password: String) {
     val req = ws
       .url(url.toString)
       .withMethod(method)
-      .withAuth(username, password, WSAuthScheme.BASIC)
+      .withAuth(username, token, WSAuthScheme.BASIC)
       .withHeaders("content-type" -> "application/json")
 
     Log.debug("req = " + req)

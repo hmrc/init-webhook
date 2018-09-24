@@ -16,43 +16,11 @@
 
 package uk.gov.hmrc.initwebhook
 
-
 object GithubEvents extends Enumeration {
-  val commit_comment,
-  create,
-  delete,
-  deployment,
-  deployment_status,
-  download,
-  follow,
-  fork,
-  fork_apply,
-  gist,
-  gollum,
-  issue_comment,
-  issues,
-  label,
-  member,
-  membership,
-  milestone,
-  organization,
-  org_block,
-  page_build,
-  project_card,
-  project_column,
-  project,
-  public,
-  pull_request,
-  pull_request_review,
-  pull_request_review_comment,
-  push,
-  release,
-  repository,
-  status,
-  team,
-  team_add,
-  watch = Value
-
+  val commit_comment, create, delete, deployment, deployment_status, download, follow, fork, fork_apply, gist, gollum,
+  issue_comment, issues, label, member, membership, milestone, organization, org_block, page_build, project_card,
+  project_column, project, public, pull_request, pull_request_review, pull_request_review_comment, push, release,
+  repository, status, team, team_add, watch = Value
 
   val defaultEvents = Seq(issues, pull_request, pull_request_review_comment, release, status).map(_.toString)
 

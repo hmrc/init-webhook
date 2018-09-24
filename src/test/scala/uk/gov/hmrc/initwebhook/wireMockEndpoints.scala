@@ -21,47 +21,43 @@ import java.net.ServerSocket
 import com.github.tomakehurst.wiremock.WireMockServer
 import com.github.tomakehurst.wiremock.client.WireMock
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration._
-import org.scalatest.{Suite, BeforeAndAfterEach, BeforeAndAfterAll}
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Suite}
 
 import scala.util.Try
 import scala.collection.JavaConversions._
 
-trait WireMockEndpoints extends Suite with BeforeAndAfterAll with BeforeAndAfterEach{
+trait WireMockEndpoints extends Suite with BeforeAndAfterAll with BeforeAndAfterEach {
 
   val host: String = "localhost"
 
-  val endpointPort: Int = PortTester.findPort()
-  val endpointMock = new WireMock(host, endpointPort)
-  val endpointMockUrl = s"http://$host:$endpointPort"
+  val endpointPort: Int              = PortTester.findPort()
+  val endpointMock                   = new WireMock(host, endpointPort)
+  val endpointMockUrl                = s"http://$host:$endpointPort"
   val endpointServer: WireMockServer = new WireMockServer(wireMockConfig().port(endpointPort))
 
   def startWireMock() = endpointServer.start()
-  def stopWireMock() = endpointServer.stop()
+  def stopWireMock()  = endpointServer.stop()
 
-  override def beforeEach():Unit={
+  override def beforeEach(): Unit = {
     endpointMock.resetMappings()
     endpointMock.resetScenarios()
   }
-  override def afterAll(): Unit ={
+  override def afterAll(): Unit =
     endpointServer.stop()
-  }
-  override def beforeAll(): Unit ={
+  override def beforeAll(): Unit =
     endpointServer.start()
-  }
 
-  def printMappings(): Unit ={
+  def printMappings(): Unit =
     endpointMock.allStubMappings().getMappings.toList.foreach { s =>
       println(s)
     }
-  }
 
 }
 
 object PortTester {
 
-  def findPort(excluded: Int*): Int = {
+  def findPort(excluded: Int*): Int =
     (6001 to 7000).find(port => !excluded.contains(port) && isFree(port)).getOrElse(throw new Exception("No free port"))
-  }
 
   private def isFree(port: Int): Boolean = {
     val triedSocket = Try {

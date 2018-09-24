@@ -75,9 +75,10 @@ object ArgParser {
       c.copy(githubUsername = x)
     } text "github username"
 
-    opt[String]("github-password") required () action { (x, c) =>
-      c.copy(githubPassword = x)
-    } text "github password"
+    opt[String]("github-token") required () action { (x, c) =>
+      c.copy(githubToken = x)
+    } text "github token" +
+      ""
 
     opt[String]("github-api-host") optional () action { (x, c) =>
       c.copy(gitApiBaseUrl = x)
@@ -99,7 +100,7 @@ object ArgParser {
 
   case class Config(
     githubUsername: String        = "",
-    githubPassword: String        = "",
+    githubToken: String           = "",
     gitApiBaseUrl: String         = "https://api.github.com",
     org: String                   = "hmrc",
     repoNames: Seq[String]        = Seq.empty,

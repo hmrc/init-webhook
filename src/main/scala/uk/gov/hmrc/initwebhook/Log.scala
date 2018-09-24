@@ -19,7 +19,7 @@ package uk.gov.hmrc.initwebhook
 import org.slf4j
 import play.api.{Logger, LoggerLike}
 
-object Log extends LoggerLike{
-  val loggerName: String = "init-webhook"
+object Log extends LoggerLike {
+  val loggerName: String            = "init-webhook"
   override val logger: slf4j.Logger = Logger(loggerName).logger
 }

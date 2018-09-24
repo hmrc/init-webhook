@@ -43,7 +43,7 @@ object Main {
 
   def start(config: Config): Unit = {
     val github =
-      new Github(new GithubHttp(config.githubUsername, config.githubPassword), config.gitApiBaseUrl, config.org)
+      new Github(new GithubHttp(config.githubUsername, config.githubToken), config.gitApiBaseUrl, config.org)
     val webHookCreateConfig = WebHookCreateConfig(config.webhookUrl, config.webhookSecret, config.contentType)
 
     try {

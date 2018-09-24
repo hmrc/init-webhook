@@ -27,7 +27,7 @@ class ArgParserSpecs extends WordSpec with Matchers with WireMockEndpoints with 
       var args = Seq(
         "--github-username",
         "my-user",
-        "--github-password",
+        "--github-token",
         "my-pass",
         "--github-api-host",
         "http://api.base.url",
@@ -49,7 +49,7 @@ class ArgParserSpecs extends WordSpec with Matchers with WireMockEndpoints with 
 
       maybeConfig.value shouldBe Config(
         githubUsername = "my-user",
-        githubPassword = "my-pass",
+        githubToken    = "my-pass",
         gitApiBaseUrl  = "http://api.base.url",
         org            = "org",
         repoNames      = Seq("repo1", "repo2"),
@@ -66,7 +66,7 @@ class ArgParserSpecs extends WordSpec with Matchers with WireMockEndpoints with 
       var args = Seq(
         "--github-username",
         "my-user",
-        "--github-password",
+        "--github-token",
         "my-pass",
         "--repositories",
         "repo1,repo2",
@@ -84,7 +84,7 @@ class ArgParserSpecs extends WordSpec with Matchers with WireMockEndpoints with 
 
       maybeConfig.value shouldBe Config(
         githubUsername = "my-user",
-        githubPassword = "my-pass",
+        githubToken    = "my-pass",
         gitApiBaseUrl  = "https://api.github.com",
         org            = "hmrc",
         repoNames      = Seq("repo1", "repo2"),
@@ -101,7 +101,7 @@ class ArgParserSpecs extends WordSpec with Matchers with WireMockEndpoints with 
       var args = Seq(
         "--github-username",
         "my-user",
-        "--github-password",
+        "--github-token",
         "my-pass",
         "--github-api-host",
         "http://api.base.url",
@@ -123,7 +123,7 @@ class ArgParserSpecs extends WordSpec with Matchers with WireMockEndpoints with 
 
       maybeConfig.value shouldBe Config(
         githubUsername = "my-user",
-        githubPassword = "my-pass",
+        githubToken    = "my-pass",
         gitApiBaseUrl  = "http://api.base.url",
         org            = "org",
         repoNames      = Seq("repo1", "repo2"),
@@ -138,12 +138,12 @@ class ArgParserSpecs extends WordSpec with Matchers with WireMockEndpoints with 
     "webhook secret is optional" in {
 
       var args = Array(
-        """--github-username my-user --github-password my-pass --github-api-host http://api.base.url --github-org org --repositories repo1,repo2 --webhook-url hook-url --content-type application/x-www-form-urlencoded --events push,team_add """
+        """--github-username my-user --github-token my-pass --github-api-host http://api.base.url --github-org org --repositories repo1,repo2 --webhook-url hook-url --content-type application/x-www-form-urlencoded --events push,team_add """
           .split(" "): _*)
 
       ArgParser.parser.parse(args, Config()).value shouldBe Config(
         githubUsername = "my-user",
-        githubPassword = "my-pass",
+        githubToken    = "my-pass",
         gitApiBaseUrl  = "http://api.base.url",
         org            = "org",
         repoNames      = Seq("repo1", "repo2"),
@@ -158,7 +158,7 @@ class ArgParserSpecs extends WordSpec with Matchers with WireMockEndpoints with 
       var args = Seq(
         "--github-username",
         "my-user",
-        "--github-password",
+        "--github-token",
         "my-pass",
         "--repositories",
         "repo1,repo2",

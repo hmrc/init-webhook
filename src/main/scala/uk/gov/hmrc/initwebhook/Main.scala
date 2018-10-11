@@ -16,60 +16,54 @@
 
 package uk.gov.hmrc.initwebhook
 
-import ch.qos.logback.classic.{Level, Logger}
+import ch.qos.logback.classic.Level.{DEBUG, INFO}
+import ch.qos.logback.classic.Logger
 import org.slf4j.LoggerFactory
-import uk.gov.hmrc.initwebhook.ArgParser.Config
-import scala.concurrent.duration._
+import uk.gov.hmrc.githubclient._
+import uk.gov.hmrc.initwebhook.ArgParser.{ProgramArguments, parser}
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
-import scala.util.Failure
+import scala.language.postfixOps
 
 object Main {
 
+  private val timeout = 5 seconds
+  private val logger  = LoggerFactory.getLogger(Log.loggerName).asInstanceOf[Logger]
+
   def main(args: Array[String]) {
 
-    ArgParser.parser.parse(args, Config()) foreach { config =>
-      val root = LoggerFactory.getLogger(Log.loggerName).asInstanceOf[Logger]
-      if (config.verbose) {
-        root.setLevel(Level.DEBUG)
-      } else {
-        root.setLevel(Level.INFO)
-      }
+    parser.parse(args, ProgramArguments.default) match {
+      case Some(ValidatedArgs(githubToken, verbosity, newWebHooks)) =>
+        setLogLevel(verbosity)
 
-      start(config)
+        new HooksProcessor(GithubApiClient("https://api.github.com", githubToken), logger)
+          .createWebHooks(newWebHooks)
+          .map { _ =>
+            logger.info("Web Hooks created")
+            0
+          }
+          .recover {
+            case _: Exception =>
+              logger.error("Creation of one or more Web Hooks failed")
+              1
+          }
+          .map(System.exit)
+          .await()
+      case _ =>
+        System.exit(1)
     }
   }
 
-  def start(config: Config): Unit = {
-    val github =
-      new Github(new GithubHttp(config.githubUsername, config.githubToken), config.gitApiBaseUrl, config.org)
-    val webHookCreateConfig = WebHookCreateConfig(config.webhookUrl, config.webhookSecret, config.contentType)
-
-    try {
-
-      val createHooksFuture = Future.sequence(
-        config.repoNames.map(repoName => github.tryCreateWebhook(repoName, webHookCreateConfig, config.events))
-      )
-
-      Await.result(
-        createHooksFuture
-          .map(_.filter(_.isFailure))
-          .map { failures =>
-            val failedMessages: Seq[String] = failures.collect { case Failure(t) => t.getMessage }
-            if (failedMessages.nonEmpty) {
-              val errorMessage =
-                "########### Failure while creating some repository hooks, please see previous errors ############\n" + failedMessages
-                  .mkString("\n")
-
-              throw new RuntimeException(errorMessage)
-            }
-          },
-        30.seconds
-      )
-
-    } finally {
-      github.close()
+  private def setLogLevel(verbosity: Boolean): Unit =
+    if (verbosity) {
+      logger.setLevel(DEBUG)
+    } else {
+      logger.setLevel(INFO)
     }
+
+  implicit class FutureOps(future: Future[Unit]) {
+    def await(): Unit = Await.result(future, timeout)
   }
 }

@@ -16,163 +16,445 @@
 
 package uk.gov.hmrc.initwebhook
 
-import org.scalatest.{Matchers, OptionValues, WordSpec}
-import uk.gov.hmrc.initwebhook.ArgParser.Config
+import org.scalatest.Matchers._
+import org.scalatest.WordSpec
+import uk.gov.hmrc.githubclient.HookEvent.{PullRequestReviewComment, Push}
+import uk.gov.hmrc.githubclient._
+import uk.gov.hmrc.initwebhook.ArgParser.{ProgramArguments, parser}
 
-class ArgParserSpecs extends WordSpec with Matchers with WireMockEndpoints with OptionValues {
+class ArgParserSpecs extends WordSpec {
 
   "ArgParser" should {
-    "create correct config" in {
 
-      var args = Seq(
-        "--github-username",
-        "my-user",
+    "create correct config if all options are given" in {
+      val args = Seq(
         "--github-token",
         "my-pass",
-        "--github-api-host",
-        "http://api.base.url",
         "--github-org",
         "org",
         "--repositories",
         "repo1,repo2",
-        "--webhook-url",
-        "hook-url",
-        "--webhook-secret",
-        "S3CR3T",
-        "--events",
-        "push,team_add",
-        "--content-type",
-        "application/x-www-form-urlencoded"
-      )
-
-      val maybeConfig = ArgParser.parser.parse(args, Config())
-
-      maybeConfig.value shouldBe Config(
-        githubUsername = "my-user",
-        githubToken    = "my-pass",
-        gitApiBaseUrl  = "http://api.base.url",
-        org            = "org",
-        repoNames      = Seq("repo1", "repo2"),
-        contentType    = "application/x-www-form-urlencoded",
-        webhookUrl     = "hook-url",
-        webhookSecret  = Some("S3CR3T"),
-        events         = Seq("push", "team_add")
-      )
-
-    }
-
-    "use the correct defaults" in {
-
-      var args = Seq(
-        "--github-username",
-        "my-user",
-        "--github-token",
-        "my-pass",
-        "--repositories",
-        "repo1,repo2",
-        "--webhook-url",
-        "hook-url",
-        "--webhook-secret",
-        "S3CR3T",
-        "--events",
-        "push,team_add",
-        "--content-type",
-        "application/x-www-form-urlencoded"
-      )
-
-      val maybeConfig = ArgParser.parser.parse(args, Config())
-
-      maybeConfig.value shouldBe Config(
-        githubUsername = "my-user",
-        githubToken    = "my-pass",
-        gitApiBaseUrl  = "https://api.github.com",
-        org            = "hmrc",
-        repoNames      = Seq("repo1", "repo2"),
-        contentType    = "application/x-www-form-urlencoded",
-        webhookUrl     = "hook-url",
-        webhookSecret  = Some("S3CR3T"),
-        events         = Seq("push", "team_add")
-      )
-
-    }
-
-    "trim spaces in repo names argument" in {
-
-      var args = Seq(
-        "--github-username",
-        "my-user",
-        "--github-token",
-        "my-pass",
-        "--github-api-host",
-        "http://api.base.url",
-        "--github-org",
-        "org",
-        "--repositories",
-        " repo1 , repo2 ",
-        "--webhook-url",
-        "hook-url",
-        "--webhook-secret",
-        "S3CR3T",
         "--content-type",
         "application/x-www-form-urlencoded",
-        "--events",
-        "push,team_add"
-      )
-
-      val maybeConfig = ArgParser.parser.parse(args, Config())
-
-      maybeConfig.value shouldBe Config(
-        githubUsername = "my-user",
-        githubToken    = "my-pass",
-        gitApiBaseUrl  = "http://api.base.url",
-        org            = "org",
-        repoNames      = Seq("repo1", "repo2"),
-        contentType    = "application/x-www-form-urlencoded",
-        webhookUrl     = "hook-url",
-        webhookSecret  = Some("S3CR3T"),
-        events         = Seq("push", "team_add")
-      )
-
-    }
-
-    "webhook secret is optional" in {
-
-      var args = Array(
-        """--github-username my-user --github-token my-pass --github-api-host http://api.base.url --github-org org --repositories repo1,repo2 --webhook-url hook-url --content-type application/x-www-form-urlencoded --events push,team_add """
-          .split(" "): _*)
-
-      ArgParser.parser.parse(args, Config()).value shouldBe Config(
-        githubUsername = "my-user",
-        githubToken    = "my-pass",
-        gitApiBaseUrl  = "http://api.base.url",
-        org            = "org",
-        repoNames      = Seq("repo1", "repo2"),
-        contentType    = "application/x-www-form-urlencoded",
-        webhookUrl     = "hook-url",
-        webhookSecret  = None,
-        events         = Seq("push", "team_add")
-      )
-    }
-
-    "only accept json or form as content type" in {
-      var args = Seq(
-        "--github-username",
-        "my-user",
-        "--github-token",
-        "my-pass",
-        "--repositories",
-        "repo1,repo2",
         "--webhook-url",
         "hook-url",
         "--webhook-secret",
         "S3CR3T",
         "--events",
-        "push,team_add",
-        "--content-type",
-        "foo"
+        "push,pull_request_review_comment",
+        "--verbose"
       )
 
-      ArgParser.parser.parse(args, Config()) shouldBe None
+      val maybeConfig = parser.parse(args, defaultProgramArguments)
+
+      maybeConfig shouldBe Some(
+        ProgramArguments(
+          githubToken   = Some("my-pass"),
+          orgName       = OrganisationName("org"),
+          repoNames     = Set(RepositoryName("repo1"), RepositoryName("repo2")),
+          contentType   = Some(HookContentType.Form),
+          webhookUrl    = Some(Url("hook-url")),
+          webhookSecret = Some(HookSecret("S3CR3T")),
+          events        = Set(Push, PullRequestReviewComment),
+          verbose       = true
+        )
+      )
+    }
+
+    "trim spaces in github-token, github-org, repositories, webhook-url and events" in {
+
+      val args = Seq(
+        "--github-token",
+        "my-pass ",
+        "--github-org",
+        " org ",
+        "--repositories",
+        " repo1 , repo2",
+        "--content-type",
+        "application/x-www-form-urlencoded",
+        "--webhook-url",
+        " hook-url ",
+        "--webhook-secret",
+        "S3CR3T",
+        "--events",
+        "push , pull_request_review_comment"
+      )
+
+      val maybeConfig = parser.parse(args, defaultProgramArguments)
+
+      maybeConfig shouldBe Some(
+        ProgramArguments(
+          githubToken   = Some("my-pass"),
+          orgName       = OrganisationName("org"),
+          repoNames     = Set(RepositoryName("repo1"), RepositoryName("repo2")),
+          contentType   = Some(HookContentType.Form),
+          webhookUrl    = Some(Url("hook-url")),
+          webhookSecret = Some(HookSecret("S3CR3T")),
+          events        = Set(Push, PullRequestReviewComment),
+          verbose       = false
+        )
+      )
+    }
+
+    "fail if empty github-token given" in {
+      val args = Seq(
+        "--github-token",
+        " ",
+        "--github-org",
+        "org",
+        "--repositories",
+        "repo1,repo2",
+        "--content-type",
+        "application/x-www-form-urlencoded",
+        "--webhook-url",
+        "hook-url",
+        "--webhook-secret",
+        "S3CR3T",
+        "--events",
+        "push,pull_request_review_comment",
+        "--verbose"
+      )
+
+      parser.parse(args, defaultProgramArguments) shouldBe None
+    }
+
+    "fail if empty github-org given" in {
+      val args = Seq(
+        "--github-token",
+        "my-pass",
+        "--github-org",
+        " ",
+        "--repositories",
+        "repo1,repo2",
+        "--content-type",
+        "application/x-www-form-urlencoded",
+        "--webhook-url",
+        "hook-url",
+        "--webhook-secret",
+        "S3CR3T",
+        "--events",
+        "push,pull_request_review_comment",
+        "--verbose"
+      )
+
+      parser.parse(args, defaultProgramArguments) shouldBe None
+    }
+
+    "not fail if no github-org given" in {
+      val args = Seq(
+        "--github-token",
+        "my-pass",
+        "--repositories",
+        "repo1,repo2",
+        "--content-type",
+        "application/x-www-form-urlencoded",
+        "--webhook-url",
+        "hook-url",
+        "--webhook-secret",
+        "S3CR3T",
+        "--events",
+        "push,pull_request_review_comment",
+        "--verbose"
+      )
+
+      val maybeConfig = parser.parse(args, defaultProgramArguments)
+
+      maybeConfig shouldBe Some(
+        ProgramArguments(
+          githubToken   = Some("my-pass"),
+          orgName       = defaultProgramArguments.orgName,
+          repoNames     = Set(RepositoryName("repo1"), RepositoryName("repo2")),
+          contentType   = Some(HookContentType.Form),
+          webhookUrl    = Some(Url("hook-url")),
+          webhookSecret = Some(HookSecret("S3CR3T")),
+          events        = Set(Push, PullRequestReviewComment),
+          verbose       = true
+        )
+      )
+    }
+
+    "fail if empty repository given" in {
+      val args = Seq(
+        "--github-token",
+        "my-pass",
+        "--github-org",
+        "org",
+        "--repositories",
+        "repo1, ",
+        "--content-type",
+        "application/x-www-form-urlencoded",
+        "--webhook-url",
+        "hook-url",
+        "--webhook-secret",
+        "S3CR3T",
+        "--events",
+        "push,pull_request_review_comment",
+        "--verbose"
+      )
+
+      parser.parse(args, defaultProgramArguments) shouldBe None
+    }
+
+    "fail if no repositories given" in {
+      val args = Seq(
+        "--github-token",
+        "my-pass",
+        "--github-org",
+        "org",
+        "--content-type",
+        "application/x-www-form-urlencoded",
+        "--webhook-url",
+        "hook-url",
+        "--webhook-secret",
+        "S3CR3T",
+        "--events",
+        "push,pull_request_review_comment",
+        "--verbose"
+      )
+
+      parser.parse(args, defaultProgramArguments) shouldBe None
+    }
+
+    "fail if empty content-type given" in {
+      val args = Seq(
+        "--github-token",
+        "my-pass",
+        "--github-org",
+        "org",
+        "--repositories",
+        "repo1,repo2",
+        "--content-type",
+        "--webhook-url",
+        "hook-url",
+        "--webhook-secret",
+        "S3CR3T",
+        "--events",
+        "push,pull_request_review_comment",
+        "--verbose"
+      )
+
+      parser.parse(args, defaultProgramArguments) shouldBe None
+    }
+
+    "fail if unknown content-type given" in {
+      val args = Seq(
+        "--github-token",
+        "my-pass",
+        "--github-org",
+        "org",
+        "--repositories",
+        "repo1,repo2",
+        "--content-type",
+        "unknown",
+        "--webhook-url",
+        "hook-url",
+        "--webhook-secret",
+        "S3CR3T",
+        "--events",
+        "push,pull_request_review_comment",
+        "--verbose"
+      )
+
+      parser.parse(args, defaultProgramArguments) shouldBe None
+    }
+
+    "fail if empty webhook-url given" in {
+      val args = Seq(
+        "--github-token",
+        "my-pass",
+        "--github-org",
+        "org",
+        "--repositories",
+        "repo1,repo2",
+        "--content-type",
+        "application/x-www-form-urlencoded",
+        "--webhook-url",
+        " ",
+        "--webhook-secret",
+        "S3CR3T",
+        "--events",
+        "push,pull_request_review_comment",
+        "--verbose"
+      )
+
+      parser.parse(args, defaultProgramArguments) shouldBe None
+    }
+
+    "fail if empty webhook-secret given" in {
+      val args = Seq(
+        "--github-token",
+        "my-pass",
+        "--github-org",
+        "org",
+        "--repositories",
+        "repo1,repo2",
+        "--content-type",
+        "application/x-www-form-urlencoded",
+        "--webhook-url",
+        "hook-url",
+        "--webhook-secret",
+        "",
+        "--events",
+        "push,pull_request_review_comment",
+        "--verbose"
+      )
+
+      parser.parse(args, defaultProgramArguments) shouldBe None
+    }
+
+    "default to None if no webhook-secret given" in {
+      val args = Seq(
+        "--github-token",
+        "my-pass",
+        "--github-org",
+        "org",
+        "--repositories",
+        "repo1,repo2",
+        "--content-type",
+        "application/x-www-form-urlencoded",
+        "--webhook-url",
+        "hook-url",
+        "--events",
+        "push,pull_request_review_comment",
+        "--verbose"
+      )
+
+      val maybeConfig = parser.parse(args, defaultProgramArguments)
+
+      maybeConfig shouldBe Some(
+        ProgramArguments(
+          githubToken   = Some("my-pass"),
+          orgName       = OrganisationName("org"),
+          repoNames     = Set(RepositoryName("repo1"), RepositoryName("repo2")),
+          contentType   = Some(HookContentType.Form),
+          webhookUrl    = Some(Url("hook-url")),
+          webhookSecret = None,
+          events        = Set(Push, PullRequestReviewComment),
+          verbose       = true
+        )
+      )
+    }
+
+    "fail if empty event given" in {
+      val args = Seq(
+        "--github-token",
+        "my-pass",
+        "--github-org",
+        "org",
+        "--repositories",
+        "repo1,repo2",
+        "--content-type",
+        "application/x-www-form-urlencoded",
+        "--webhook-url",
+        "hook-url",
+        "--webhook-secret",
+        "S3CR3T",
+        "--events",
+        " ,pull_request_review_comment",
+        "--verbose"
+      )
+
+      parser.parse(args, defaultProgramArguments) shouldBe None
+    }
+
+    "fail if unknown event given" in {
+      val args = Seq(
+        "--github-token",
+        "my-pass",
+        "--github-org",
+        "org",
+        "--repositories",
+        "repo1,repo2",
+        "--content-type",
+        "application/x-www-form-urlencoded",
+        "--webhook-url",
+        "hook-url",
+        "--webhook-secret",
+        "S3CR3T",
+        "--events",
+        "unknown,pull_request_review_comment",
+        "--verbose"
+      )
+
+      parser.parse(args, defaultProgramArguments) shouldBe None
+    }
+
+    "default to empty Set if no events given" in {
+      val args = Seq(
+        "--github-token",
+        "my-pass",
+        "--github-org",
+        "org",
+        "--repositories",
+        "repo1,repo2",
+        "--content-type",
+        "application/x-www-form-urlencoded",
+        "--webhook-url",
+        "hook-url",
+        "--webhook-secret",
+        "S3CR3T",
+        "--verbose"
+      )
+
+      val maybeConfig = parser.parse(args, defaultProgramArguments)
+
+      maybeConfig shouldBe Some(
+        ProgramArguments(
+          githubToken   = Some("my-pass"),
+          orgName       = OrganisationName("org"),
+          repoNames     = Set(RepositoryName("repo1"), RepositoryName("repo2")),
+          contentType   = Some(HookContentType.Form),
+          webhookUrl    = Some(Url("hook-url")),
+          webhookSecret = Some(HookSecret("S3CR3T")),
+          events        = Set.empty,
+          verbose       = true
+        )
+      )
+    }
+
+    "doesn't change to verbose value if not set" in {
+      val args = Seq(
+        "--github-token",
+        "my-pass",
+        "--github-org",
+        "org",
+        "--repositories",
+        "repo1,repo2",
+        "--content-type",
+        "application/x-www-form-urlencoded",
+        "--webhook-url",
+        "hook-url",
+        "--webhook-secret",
+        "S3CR3T",
+        "--events",
+        "push,pull_request_review_comment"
+      )
+
+      val maybeConfig = parser.parse(args, defaultProgramArguments)
+
+      maybeConfig shouldBe Some(
+        ProgramArguments(
+          githubToken   = Some("my-pass"),
+          orgName       = OrganisationName("org"),
+          repoNames     = Set(RepositoryName("repo1"), RepositoryName("repo2")),
+          contentType   = Some(HookContentType.Form),
+          webhookUrl    = Some(Url("hook-url")),
+          webhookSecret = Some(HookSecret("S3CR3T")),
+          events        = Set(Push, PullRequestReviewComment),
+          verbose       = defaultProgramArguments.verbose
+        )
+      )
     }
   }
+
+  private val defaultProgramArguments = ProgramArguments(
+    githubToken   = None,
+    orgName       = OrganisationName("hmrc"),
+    repoNames     = Set.empty,
+    contentType   = None,
+    webhookUrl    = None,
+    webhookSecret = None,
+    events        = Set.empty,
+    verbose       = false
+  )
 }

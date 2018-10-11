@@ -16,15 +16,15 @@
 
 package uk.gov.hmrc.initwebhook
 
-import scopt.Read
+import scopt.OptionParser
+import uk.gov.hmrc.githubclient.HookEvent._
+import uk.gov.hmrc.githubclient._
 
 import scala.util.Try
 
 object ArgParser {
 
-  import GithubEvents._
-
-  val parser = new scopt.OptionParser[Config]("init-webhook") {
+  val parser: OptionParser[ProgramArguments] = new OptionParser[ProgramArguments]("init-webhook") {
 
     override def showUsageOnError = true
 
@@ -32,82 +32,116 @@ object ArgParser {
 
     help("help") text "prints this usage text"
 
-    opt[Seq[String]]("repositories") required () valueName "<repo1>,<repo3>..." action { (x, c) =>
-      c.copy(repoNames = x.map(_.trim))
-    } text "the name of the github repository"
-
-    opt[String]("webhook-url") required () action { (x, c) =>
-      c.copy(webhookUrl = x)
-    } text "the url to add as a github Webhook"
-
-    opt[Option[String]]("webhook-secret")
-      .optional()
-      .action { (x, c) =>
-        c.copy(webhookSecret = x)
+    opt[String]("github-token")
+      .required()
+      .text("github token")
+      .validate { x =>
+        if (x.trim.nonEmpty) success
+        else failure(s"empty github-token not allowed")
       }
+      .action { (x, c) =>
+        c.copy(githubToken = Some(x.trim))
+      }
+
+    opt[String]("github-org")
+      .optional()
+      .text("the name of the github organization. Defaults to hmrc")
+      .validate { x =>
+        if (x.trim.nonEmpty) success
+        else failure(s"empty github-org not allowed")
+      }
+      .action { (x, c) =>
+        c.copy(orgName = OrganisationName(x.trim))
+      }
+
+    opt[Seq[String]]("repositories")
+      .required()
+      .text("the name of the github repository")
+      .valueName("<repo1>,<repo2>...")
+      .validate { x =>
+        if (x.forall(_.trim.nonEmpty)) success
+        else failure(s"empty repository names not allowed")
+      }
+      .action { (x, c) =>
+        c.copy(repoNames = x.map(_.trim).map(RepositoryName.apply).toSet)
+      }
+
+    opt[String]("content-type")
+      .required()
+      .text("the body format sent to the Webhook")
+      .valueName("'application/json', 'application/x-www-form-urlencoded'")
+      .validate {
+        case "application/json" | "application/x-www-form-urlencoded" => success
+        case ct =>
+          failure(
+            s"Unsupported content type '$ct'. Allowed values: 'application/json' and 'application/x-www-form-urlencoded'"
+          )
+      }
+      .action { (x, c) =>
+        c.copy(contentType = x match {
+          case "application/json"                  => Some(HookContentType.Json)
+          case "application/x-www-form-urlencoded" => Some(HookContentType.Form)
+        })
+      }
+
+    opt[String]("webhook-url")
+      .required()
+      .text("the url to add as a github Webhook")
+      .validate { x =>
+        if (x.trim.nonEmpty) success
+        else failure(s"empty webhook-url not allowed")
+      }
+      .action { (x, c) =>
+        c.copy(webhookUrl = Some(Url(x.trim)))
+      }
+
+    opt[String]("webhook-secret")
+      .optional()
       .text("Webhook secret key to be added to the Webhook")
+      .action { (x, c) =>
+        c.copy(webhookSecret = Some(HookSecret(x)))
+      }
 
     opt[Seq[String]]("events")
-      .valueName("<event1>,<event2>...")
-      .action { (x, c) =>
-        c.copy(events = x)
-      }
       .text("comma separated events to for notification")
+      .valueName("<event1>,<event2>...")
       .validate { x =>
-        val t = Try(GithubEvents.withNames(x))
-        if (t.isSuccess) success
-        else failure(s"invalid github event found in $x.\n\tValid values are: ${GithubEvents.values.mkString(", ")}")
+        if (Try(HookEvent(x.map(_.trim): _*)).isSuccess) success
+        else failure(s"invalid github event found in $x.\n\tValid values are: ${HookEvent.all.mkString(", ")}")
       }
       .action { (x, c) =>
-        c.copy(events = withNames(x).map(_.toString))
+        c.copy(events = HookEvent(x.map(_.trim): _*))
       }
 
-    opt[String]("content-type") required () valueName "application/json" validate {
-      case "application/json" | "application/x-www-form-urlencoded" => success
-      case ct =>
-        failure(
-          s"Unsupported content type '$ct'. Accepted values: 'application/json' and 'application/x-www-form-urlencoded'")
-    } action { (x, c) =>
-      c.copy(contentType = x)
-    } text "the body format sent to the Webhook. Accepted values: 'application/json' and 'application/x-www-form-urlencoded'"
-
-    opt[String]("github-username") required () action { (x, c) =>
-      c.copy(githubUsername = x)
-    } text "github username"
-
-    opt[String]("github-token") required () action { (x, c) =>
-      c.copy(githubToken = x)
-    } text "github token" +
-      ""
-
-    opt[String]("github-api-host") optional () action { (x, c) =>
-      c.copy(gitApiBaseUrl = x)
-    } text "git api base url. Defaults to https://api.github.com"
-
-    opt[String]("github-org") optional () action { (x, c) =>
-      c.copy(org = x)
-    } text "the name of the github organization. Defaults to hmrc"
-
-    opt[Unit]("verbose") action { (x, c) =>
-      c.copy(verbose = true)
-    } text "verbose mode (debug logging)"
-
+    opt[Unit]("verbose")
+      .optional()
+      .text("verbose mode (debug logging). Defaults to false")
+      .action { (x, c) =>
+        c.copy(verbose = true)
+      }
   }
 
-  implicit def optionStringRead: Read[Option[String]] = Read.reads { (s: String) =>
-    Option(s)
+  case class ProgramArguments(
+    githubToken: Option[String],
+    orgName: OrganisationName,
+    repoNames: Set[RepositoryName],
+    contentType: Option[HookContentType],
+    webhookUrl: Option[Url],
+    webhookSecret: Option[HookSecret],
+    events: Set[HookEvent],
+    verbose: Boolean
+  )
+
+  object ProgramArguments {
+    val default: ProgramArguments = ProgramArguments(
+      githubToken   = None,
+      orgName       = OrganisationName("hmrc"),
+      repoNames     = Set.empty,
+      contentType   = None,
+      webhookUrl    = None,
+      webhookSecret = None,
+      events        = Set(Issues, PullRequest, PullRequestReviewComment, Release, Status),
+      verbose       = false
+    )
   }
-
-  case class Config(
-    githubUsername: String        = "",
-    githubToken: String           = "",
-    gitApiBaseUrl: String         = "https://api.github.com",
-    org: String                   = "hmrc",
-    repoNames: Seq[String]        = Seq.empty,
-    contentType: String           = "",
-    webhookUrl: String            = "",
-    webhookSecret: Option[String] = None,
-    events: Seq[String]           = GithubEvents.defaultEvents,
-    verbose: Boolean              = false)
-
 }

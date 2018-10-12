@@ -21,7 +21,7 @@ import uk.gov.hmrc.githubclient.{GithubApiClient, Hook, HookConfig, HookName}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class HooksProcessor(githubClient: GithubApiClient, logger: Logger) {
+private class HooksProcessor(githubClient: GithubApiClient, logger: Logger) {
 
   import githubClient._
 

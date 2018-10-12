@@ -22,7 +22,7 @@ import uk.gov.hmrc.githubclient._
 
 import scala.util.Try
 
-object ArgParser {
+private object ArgParser {
 
   val parser: OptionParser[ProgramArguments] = new OptionParser[ProgramArguments]("init-webhook") {
 
@@ -97,13 +97,15 @@ object ArgParser {
 
     opt[String]("webhook-secret")
       .optional()
-      .text("Webhook secret key to be added to the Webhook")
+      .text("an optional webhook secret key to be added to the Webhook")
       .action { (x, c) =>
         c.copy(webhookSecret = Some(HookSecret(x)))
       }
 
     opt[Seq[String]]("events")
-      .text("comma separated events to for notification")
+      .text(
+        s"optional comma separated events for notification. Defaults to: ${ProgramArguments.defaultEvents.mkString(", ")}"
+      )
       .valueName("<event1>,<event2>...")
       .validate { x =>
         if (Try(HookEvent(x.map(_.trim): _*)).isSuccess) success
@@ -121,7 +123,7 @@ object ArgParser {
       }
   }
 
-  case class ProgramArguments(
+  private[initwebhook] case class ProgramArguments(
     githubToken: Option[String],
     orgName: OrganisationName,
     repoNames: Set[RepositoryName],
@@ -132,7 +134,16 @@ object ArgParser {
     verbose: Boolean
   )
 
-  object ProgramArguments {
+  private[initwebhook] object ProgramArguments {
+
+    private[initwebhook] val defaultEvents: Set[HookEvent] = Set(
+      Issues,
+      PullRequest,
+      PullRequestReviewComment,
+      Release,
+      Status
+    )
+
     val default: ProgramArguments = ProgramArguments(
       githubToken   = None,
       orgName       = OrganisationName("hmrc"),
@@ -140,7 +151,7 @@ object ArgParser {
       contentType   = None,
       webhookUrl    = None,
       webhookSecret = None,
-      events        = Set(Issues, PullRequest, PullRequestReviewComment, Release, Status),
+      events        = defaultEvents,
       verbose       = false
     )
   }

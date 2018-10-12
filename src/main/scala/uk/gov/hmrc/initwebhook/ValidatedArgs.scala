@@ -19,7 +19,7 @@ package uk.gov.hmrc.initwebhook
 import uk.gov.hmrc.githubclient._
 import uk.gov.hmrc.initwebhook.ArgParser.ProgramArguments
 
-object ValidatedArgs {
+private object ValidatedArgs {
 
   def unapply(programArguments: ProgramArguments): Option[(String, Boolean, Set[NewWebHook])] = programArguments match {
     case ProgramArguments(

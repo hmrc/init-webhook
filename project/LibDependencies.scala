@@ -5,7 +5,7 @@ object LibDependencies {
   val compile: Seq[ModuleID] = Seq(
     "com.github.scopt" %% "scopt"          % "3.3.0",
     "ch.qos.logback"   % "logback-classic" % "1.2.3",
-    "uk.gov.hmrc"      %% "github-client"  % "2.4.0"
+    "uk.gov.hmrc"      %% "github-client"  % "2.6.0"
   )
 
   lazy val test: Seq[ModuleID] = Seq(

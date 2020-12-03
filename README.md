@@ -1,7 +1,7 @@
 
 # init-webhook
 
-[![Build Status](https://travis-ci.org/hmrc/init-webhook.svg?branch=master)](https://travis-ci.org/hmrc/init-webhook) [ ![Download](https://api.bintray.com/packages/hmrc/releases/init-webhook/images/download.svg) ](https://bintray.com/hmrc/releases/init-webhook/_latestVersion)
+
 
 This is a standalone tool to create new webhooks in GitHub.
 
